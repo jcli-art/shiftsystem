@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客服輪班重要事項宣導系統 - 完美貼圖版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        .animate-marquee { display: inline-block; white-space: nowrap; animation: marquee 20s linear infinite; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .tv-scroll::-webkit-scrollbar { display: none; }
+        .tv-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.7; cursor: pointer; }
+        
+        .img-preview-box { max-width: 150px; position: relative; display: none; margin-top: 8px; }
+        .img-preview-box img { width: 100%; border-radius: 8px; border: 2px solid #6366f1; }
+        .img-remove-btn { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col">
+
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[200] flex flex-col gap-3 pointer-events-none"></div>
+
+    <div id="login-view" class="flex-1 flex items-center justify-center hidden">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 w-96 text-center relative overflow-hidden">
+            <h1 class="text-2xl font-bold mb-2 text-white">客服輪班公告系統</h1>
+            <p class="text-gray-400 text-sm mb-6">請輸入部門專屬帳號與密碼</p>
+            <div class="space-y-4 mb-4 text-left">
+                <input type="text" id="login-account" placeholder="員工帳號 (Email)" class="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none focus:border-indigo-500">
+                <input type="password" id="login-password" placeholder="密碼" class="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none focus:border-indigo-500">
+            </div>
+            <div class="text-right mb-6"><button onclick="window.resetPassword()" class="text-sm text-indigo-400 hover:text-indigo-300">忘記密碼？</button></div>
+            <button onclick="window.performLocalLogin()" id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg mb-4 shadow-lg flex items-center justify-center gap-2">
+                <span>登入系統</span>
+            </button>
+            <button onclick="window.devTvLogin()" class="w-full bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 font-bold py-2 rounded-lg">📺 啟動電視看板</button>
+        </div>
+    </div>
+
+    <div id="app-layout" class="hidden flex-1 flex flex-col h-screen">
+        <div id="marquee-container" class="bg-red-600 text-white px-4 py-2 flex overflow-hidden text-sm font-bold shadow-md shrink-0 hidden z-50">
+            <span class="mr-4 whitespace-nowrap">🚨 [緊急通知]</span>
+            <div class="flex-1 overflow-hidden relative"><div class="animate-marquee" id="global-marquee"></div></div>
+        </div>
+
+        <header id="main-header" class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center shrink-0">
+            <div class="text-xl font-bold text-white flex items-center">📋 值班系統 <span id="role-badge" class="ml-3 text-xs bg-gray-600 px-2 py-1 rounded"></span></div>
+            <div class="flex items-center gap-4">
+                <button id="switch-view-btn" onclick="window.toggleView()" class="hidden text-sm bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded shadow">切換主管後台</button>
+                <button id="agent-tv-btn" onclick="window.enterTvMode()" class="hidden text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded border border-gray-600 font-bold shadow">📺 電視看板</button>
+                <span class="text-gray-300 text-sm border-l border-gray-600 pl-4 hidden sm:inline-block" id="user-greeting"></span>
+                <div class="border-l border-gray-600 pl-4 flex items-center gap-3">
+                    <button onclick="window.changePassword()" class="text-sm text-yellow-400 hover:text-yellow-300 font-bold">修改密碼</button>
+                    <button onclick="window.logout()" class="text-sm text-red-400 hover:text-red-300 font-bold">登出</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <main id="tv-view" class="flex-1 p-8 bg-gray-900 relative hidden flex-col">
+                <div class="flex justify-between items-start mb-6 border-b border-gray-800 pb-4 shrink-0">
+                    <h2 class="text-3xl font-bold text-white tracking-wider flex items-center gap-4">
+                        📺 辦公室即時看板 
+                        <button onclick="window.exitTvMode()" id="tv-exit-btn" class="hidden text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 px-4 py-2 rounded-lg font-bold shadow-lg">❌ 退出看板</button>
+                    </h2>
+                    <div class="text-right shrink-0">
+                        <div id="tv-live-time" class="text-3xl font-mono font-bold text-indigo-400">00:00:00</div>
+                        <div id="tv-live-date" class="text-gray-400 text-lg">YYYY/MM/DD</div>
+                    </div>
+                </div>
+                <div class="flex-1 flex gap-8 min-h-0">
+                    <div class="w-2/3 flex flex-col">
+                        <h3 class="text-xl font-bold text-gray-400 mb-4 uppercase tracking-wider">📢 最新公告</h3>
+                        <div id="tv-notice-grid" class="grid grid-cols-2 gap-6 overflow-y-auto tv-scroll pr-2"></div>
+                    </div>
+                    <div class="w-1/3 flex flex-col border-l border-gray-700 pl-8">
+                        <h3 class="text-xl font-bold text-indigo-400 mb-4 uppercase tracking-wider">🤝 待辦交接</h3>
+                        <div id="tv-handover-feed" class="flex-1 overflow-y-auto tv-scroll space-y-4 pr-2"></div>
+                    </div>
+                </div>
+            </main>
+
+            <main id="agent-view" class="flex-1 p-6 overflow-y-auto hidden flex flex-col">
+                <div class="flex flex-wrap border-b border-gray-700 mb-6 shrink-0 gap-4 items-center justify-between pb-2">
+                    <div class="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1">
+                        <button onclick="window.switchAgentTab('active')" id="tab-active" class="px-4 py-2 font-bold text-indigo-400 border-b-2 border-indigo-400 whitespace-nowrap">最新公告</button>
+                        <button onclick="window.switchAgentTab('history')" id="tab-history" class="px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">歷史紀錄</button>
+                        <button onclick="window.switchAgentTab('handover')" id="tab-handover" class="px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">交接專區</button>
+                    </div>
+                    <div id="search-container" class="relative w-full sm:w-64 shrink-0">
+                        <input type="text" id="search-input" oninput="window.renderAgentNotices()" placeholder="搜尋標題或內容..." class="w-full bg-gray-800 border border-gray-600 rounded-full py-2 px-4 text-sm text-white outline-none focus:border-indigo-500 shadow-inner">
+                    </div>
+                </div>
+                <div id="notice-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-6 overflow-y-auto pb-6 pr-2"></div>
+                <div id="handover-section" class="hidden flex-col h-full">
+                    <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 mb-6 shrink-0 shadow-lg">
+                        <h3 class="text-lg font-bold text-white mb-3">📝 發布交接事項 (支持 Ctrl+V 直接貼圖)</h3>
+                        <div class="flex flex-col gap-3">
+                            <textarea id="handover-input" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none focus:border-indigo-500 resize-none transition-colors" placeholder="請輸入交接內容或直接在此 Ctrl+V 貼上截圖..."></textarea>
+                            
+                            <div class="flex justify-between items-center">
+                                <div id="handover-img-preview" class="img-preview-box">
+                                    <div class="img-remove-btn" onclick="window.clearAttachedImage('handover')">×</div>
+                                    <img id="preview-img-handover" src="">
+                                </div>
+                                
+                                <div class="flex items-center gap-3 ml-auto">
+                                    <label class="cursor-pointer text-indigo-400 hover:text-indigo-300 text-sm flex items-center gap-1">
+                                        📎 檔案上傳
+                                        <input type="file" id="handover-file" class="hidden" accept="image/*" onchange="window.handleFileSelect(this, 'handover')">
+                                    </label>
+                                    <button onclick="window.submitHandover()" id="submit-handover-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium shadow">發布交接</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="agent-handover-feed" class="flex-1 overflow-y-auto space-y-4 pb-6 pr-2"></div>
+                </div>
+            </main>
+
+            <main id="supervisor-view" class="flex-1 p-6 overflow-y-auto hidden flex flex-col">
+                <div class="flex flex-wrap border-b border-gray-700 mb-6 justify-between items-center pb-2 shrink-0 gap-4">
+                    <div class="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1">
+                        <button id="super-tab-notices" onclick="window.switchSupervisorTab('notices')" class="px-4 py-2 font-bold text-indigo-400 border-b-2 border-indigo-400 whitespace-nowrap">📢 公告管理</button>
+                        <button id="super-tab-users" onclick="window.switchSupervisorTab('users')" class="px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">👥 帳號管理</button>
+                        <button id="super-tab-handover" onclick="window.switchSupervisorTab('handover')" class="px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">🤝 交接專區</button>
+                    </div>
+                    <button id="new-notice-btn" onclick="window.openNoticeModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium shadow shrink-0">
+                        ➕ 發布新公告
+                    </button>
+                </div>
+                
+                <div id="super-notices-section" class="bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto shrink-0 shadow-lg">
+                    <table class="w-full text-left text-sm min-w-[600px]">
+                        <thead class="bg-gray-700 text-gray-300">
+                            <tr><th class="px-6 py-4 whitespace-nowrap">狀態</th><th class="px-6 py-4">主題</th><th class="px-6 py-4 whitespace-nowrap">進度 (僅計算客服)</th><th class="px-6 py-4 text-right whitespace-nowrap">操作</th></tr>
+                        </thead>
+                        <tbody id="supervisor-table-body" class="divide-y divide-gray-700"></tbody>
+                    </table>
+                </div>
+                
+                <div id="super-users-section" class="hidden flex-col xl:flex-row gap-6 shrink-0">
+                    <div class="w-full xl:w-1/3 bg-gray-800 p-6 rounded-xl border border-gray-700 h-fit shadow-lg">
+                        <h3 class="text-lg font-bold text-white mb-4">➕ 建立新帳號</h3>
+                        <div class="space-y-4">
+                            <input type="text" id="new-user-name" placeholder="員工姓名" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-indigo-500">
+                            <input type="email" id="new-user-email" placeholder="Email" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-indigo-500">
+                            <input type="password" id="new-user-password" placeholder="密碼 (最少6碼)" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-indigo-500">
+                            <select id="new-user-role" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-indigo-500">
+                                <option value="agent">客服人員</option>
+                                <option value="supervisor">主管</option>
+                            </select>
+                            <button id="create-user-btn" onclick="window.createNewAccount()" class="w-full bg-indigo-600 hover:bg-indigo-700 py-2 rounded font-bold shadow">確認建立</button>
+                        </div>
+                    </div>
+                    <div class="w-full xl:w-2/3 bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex-1 flex flex-col overflow-hidden">
+                        <h3 class="text-lg font-bold text-white mb-4">👥 人員清單</h3>
+                        <div class="overflow-x-auto flex-1">
+                            <table class="w-full text-left text-sm text-gray-300 min-w-[500px]">
+                                <thead class="bg-gray-700"><tr><th class="px-6 py-3">姓名</th><th class="px-6 py-3">Email</th><th class="px-6 py-3">權限</th><th class="px-6 py-3 text-right">操作</th></tr></thead>
+                                <tbody id="users-table-body" class="divide-y divide-gray-700"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="super-handover-section" class="hidden flex-col h-full flex-1 min-h-0">
+                    <div id="super-handover-feed" class="flex-1 overflow-y-auto space-y-4 pb-6 pr-2"></div>
+                </div>
+            </main>
+
+            <aside id="main-sidebar" class="w-full md:w-64 bg-gray-800 border-l border-gray-700 p-6 flex flex-col shrink-0">
+                <div class="text-center p-6 bg-gray-900 rounded-xl border border-gray-700 shadow-inner">
+                    <div id="live-time" class="text-3xl font-mono font-bold text-white mb-2 tracking-wider">00:00:00</div>
+                    <div id="live-date" class="text-gray-400 text-sm">YYYY/MM/DD</div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <div id="notice-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-50">
+        <div class="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
+            <h3 id="modal-title" class="text-xl font-bold text-white mb-4">發布公告</h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <select id="modal-type" class="bg-gray-900 border border-gray-700 rounded p-2 text-white outline-none focus:border-indigo-500">
+                        <option value="系統 Bug">系統 Bug</option><option value="話術變更">話術變更</option>
+                        <option value="行政通知">行政通知</option><option value="緊急通知">緊急通知</option>
+                    </select>
+                    <input type="datetime-local" id="modal-publish" class="bg-gray-900 border border-gray-700 rounded p-2 text-white outline-none focus:border-indigo-500" title="預排上架時間">
+                </div>
+                <input type="text" id="modal-title-input" placeholder="標題" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white outline-none focus:border-indigo-500">
+                <textarea id="modal-content" rows="4" placeholder="詳細內容... (支持在此 Ctrl+V 貼上截圖)" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white resize-none outline-none focus:border-indigo-500"></textarea>
+                
+                <div id="notice-img-preview" class="img-preview-box">
+                    <div class="img-remove-btn" onclick="window.clearAttachedImage('notice')">×</div>
+                    <img id="preview-img-notice" src="">
+                </div>
+
+                <div class="flex justify-between items-center gap-4">
+                    <label class="cursor-pointer text-indigo-400 hover:text-indigo-300 text-sm flex items-center gap-1">
+                        📎 檔案上傳
+                        <input type="file" id="notice-file" class="hidden" accept="image/*" onchange="window.handleFileSelect(this, 'notice')">
+                    </label>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="modal-show-on-tv" checked class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded">
+                        <label for="modal-show-on-tv" class="ml-2 text-sm text-indigo-300 cursor-pointer">電視牆顯示此公告</label>
+                    </div>
+                </div>
+                <input type="datetime-local" id="modal-expiry" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white outline-none focus:border-indigo-500" title="自動下架時間">
+                <div id="force-unread-container" class="hidden flex items-center mt-2 pt-2 border-t border-gray-700">
+                    <input type="checkbox" id="modal-force-unread" class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded">
+                    <label for="modal-force-unread" class="ml-2 text-sm text-red-400 cursor-pointer">⚠️ 強制清空所有人的已讀紀錄</label>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button onclick="window.closeNoticeModal()" class="text-gray-400 hover:text-white">取消</button>
+                <button onclick="window.saveNotice()" id="save-notice-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded font-medium shadow">儲存發布</button>
+            </div>
+            <input type="hidden" id="modal-edit-id" value="">
+        </div>
+    </div>
+
+    <div id="unread-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-50">
+        <div class="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="flex justify-between items-center mb-4 shrink-0">
+                <h3 class="text-xl font-bold text-indigo-400">📋 簽收狀態 (客服人員)</h3>
+                <button onclick="window.closeUnreadModal()" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <p class="text-gray-300 text-sm mb-4 pb-4 border-b border-gray-700 shrink-0" id="unread-modal-subtitle"></p>
+            <div class="flex-1 overflow-y-auto pr-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="text-green-400 font-bold mb-2">✅ 已讀 (<span id="read-count-num">0</span>)</h4>
+                        <ul id="read-modal-list" class="space-y-2"></ul>
+                    </div>
+                    <div>
+                        <h4 class="text-red-400 font-bold mb-2">❌ 未讀 (<span id="unread-count-num">0</span>)</h4>
+                        <ul id="unread-modal-list" class="space-y-2"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="image-viewer-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md hidden flex items-center justify-center z-[100]" onclick="window.closeImageViewer()">
+        <img id="full-image-el" class="max-w-[95%] max-h-[95%] object-contain shadow-2xl border border-gray-700">
+        <div class="absolute top-6 right-6 text-white text-4xl cursor-pointer hover:text-gray-300">&times;</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, doc, deleteDoc, onSnapshot, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXe0zGBQh8_9U_XQ3EkjOcJAJPPmsDFAI",
+            authDomain: "customer-service-announcement.firebaseapp.com",
+            projectId: "customer-service-announcement",
+            storageBucket: "customer-service-announcement.firebasestorage.app",
+            messagingSenderId: "274244413953",
+            appId: "1:274244413953:web:1559fc202c5a5f0566ee00"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
+        const secondaryAuth = getAuth(secondaryApp);
+
+        window.currentUser = null;
+        window.currentView = 'login'; 
+        window.currentAgentTab = 'active';
+        window.currentSupervisorTab = 'notices';
+        window.noticesData = [];
+        window.handoversData = [];
+        window.usersData = [];
+        
+        window.attachedImageBase64 = { notice: null, handover: null };
+
+        // --- 核心共用函式 ---
+        window.showToast = (message, type = 'success') => {
+            const container = document.getElementById('toast-container');
+            if(!container) return;
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-600' : 'bg-red-600';
+            toast.className = `${bgColor} text-white px-5 py-3 rounded-lg shadow-xl mb-2 flex items-center gap-2 font-medium border border-white/10`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        };
+
+        function isNoticePublished(notice) {
+            if (notice.status !== 'active') return false;
+            if (!notice.publishDate) return true; 
+            return new Date(notice.publishDate) <= new Date(); 
+        }
+
+        function getColorByType(type) { 
+            switch(type){ 
+                case "系統 Bug": return "text-red-400 border-red-400"; 
+                case "話術變更": return "text-yellow-400 border-yellow-400"; 
+                case "行政通知": return "text-blue-400 border-blue-400"; 
+                case "緊急通知": return "text-purple-400 border-purple-400"; 
+                default: return "text-gray-400 border-gray-400"; 
+            } 
+        }
+
+        // --- 圖片處理引擎 (含貼上事件監聽) ---
+        window.processAndCompressImage = async (file) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width; let height = img.height;
+                        const MAX_WIDTH = 800; 
+                        if (width > MAX_WIDTH) { height = Math.round((height * MAX_WIDTH) / width); width = MAX_WIDTH; }
+                        canvas.width = width; canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const base64String = canvas.toDataURL('image/jpeg', 0.5); 
+                        if (base64String.length > 800000) {
+                            window.showToast("❌ 圖片過大，請截取較小範圍！", "error"); resolve(null);
+                        } else {
+                            resolve(base64String);
+                        }
+                    };
+                };
+            });
+        };
+
+        window.handleFileSelect = async (input, type) => {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const base64 = await window.processAndCompressImage(file);
+                if (base64) {
+                    window.attachedImageBase64[type] = base64;
+                    window.showImagePreview(type, base64);
+                }
+                input.value = '';
+            }
+        };
+
+        // 🚨 關鍵補回：監聽輸入框的 Ctrl+V 鍵盤貼上事件
+        function setupClipboardPaste(textareaId, type) {
+            const el = document.getElementById(textareaId);
+            if (!el) return;
+            el.addEventListener('paste', async (e) => {
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const file = items[i].getAsFile();
+                        window.showToast("🖼️ 正在處理剪貼簿圖片...");
+                        const base64 = await window.processAndCompressImage(file);
+                        if (base64) {
+                            window.attachedImageBase64[type] = base64;
+                            window.showImagePreview(type, base64);
+                        }
+                        e.preventDefault(); // 阻止把假檔名或亂碼文字貼進輸入框
+                        break;
+                    }
+                }
+            });
+        }
+
+        window.showImagePreview = (type, base64) => {
+            const previewBox = document.getElementById(`${type}-img-preview`);
+            const previewImg = document.getElementById(`preview-img-${type}`);
+            if (previewBox && previewImg) {
+                previewImg.src = base64;
+                previewBox.style.display = 'block';
+            }
+        };
+
+        window.clearAttachedImage = (type) => {
+            window.attachedImageBase64[type] = null;
+            const previewBox = document.getElementById(`${type}-img-preview`);
+            const previewImg = document.getElementById(`preview-img-${type}`);
+            if (previewBox && previewImg) {
+                previewBox.style.display = 'none';
+                previewImg.src = '';
+            }
+        };
+
+        // --- UI 顯示基本核心控制 ---
+        window.showLoginView = () => { 
+            document.getElementById('login-view').classList.remove('hidden'); 
+            document.getElementById('app-layout').classList.add('hidden'); 
+        };
+
+        window.showAppLayout = () => { 
+            document.getElementById('login-view').classList.add('hidden'); 
+            document.getElementById('app-layout').classList.remove('hidden'); 
+            if(window.currentUser && window.currentUser.role !== 'tv'){ 
+                document.getElementById('user-greeting').innerText = `哈囉, ${window.currentUser.name}`; 
+                document.getElementById('role-badge').innerText = window.currentUser.role === 'supervisor' ? '主管' : '客服'; 
+            } 
+            window.renderCurrentView(); 
+            // 重新載入時綁定貼上事件監聽
+            setupClipboardPaste('handover-input', 'handover');
+            setupClipboardPaste('modal-content', 'notice');
+        };
+
+        window.renderCurrentView = () => {
+            const header = document.getElementById('main-header');
+            const sidebar = document.getElementById('main-sidebar');
+            const exitBtn = document.getElementById('tv-exit-btn');
+            
+            const agentView = document.getElementById('agent-view');
+            const superView = document.getElementById('supervisor-view');
+            const tvView = document.getElementById('tv-view');
+
+            if(agentView) agentView.classList.add('hidden');
+            if(superView) superView.classList.add('hidden');
+            if(tvView) tvView.classList.add('hidden');
+
+            if (window.currentView === 'tv') { 
+                if(header) header.classList.add('hidden'); 
+                if(sidebar) sidebar.classList.add('hidden'); 
+                if(exitBtn) exitBtn.classList.remove('hidden');
+                if(tvView) { tvView.classList.remove('hidden'); tvView.classList.add('flex'); }
+                window.renderTvNotices(); 
+            } else { 
+                if(header) header.classList.remove('hidden'); 
+                if(sidebar) sidebar.classList.remove('hidden');
+                if(exitBtn) exitBtn.classList.add('hidden');
+
+                if (window.currentView === 'agent') { 
+                    if(agentView) agentView.classList.remove('hidden'); 
+                    window.switchAgentTab(window.currentAgentTab); 
+                } else if (window.currentView === 'supervisor') { 
+                    if(superView) superView.classList.remove('hidden');
+                    window.switchSupervisorTab(window.currentSupervisorTab); 
+                }
+            }
+        };
+
+        window.switchAgentTab = (tab) => { 
+            window.currentAgentTab = tab; 
+            ['active', 'history', 'handover'].forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (el) {
+                    if (t === tab) el.className = "px-4 py-2 font-bold text-indigo-400 border-b-2 border-indigo-400 whitespace-nowrap";
+                    else el.className = "px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap";
+                }
+            });
+            
+            const noticeGrid = document.getElementById('notice-grid');
+            const searchContainer = document.getElementById('search-container');
+            const handoverSection = document.getElementById('handover-section');
+
+            if (tab === 'handover') {
+                if(noticeGrid) noticeGrid.classList.add('hidden');
+                if(searchContainer) searchContainer.classList.add('hidden'); 
+                if(handoverSection) handoverSection.classList.remove('hidden');
+                window.renderHandoverFeed();
+                setupClipboardPaste('handover-input', 'handover');
+            } else {
+                if(noticeGrid) noticeGrid.classList.remove('hidden');
+                if(searchContainer) searchContainer.classList.remove('hidden'); 
+                if(handoverSection) handoverSection.classList.add('hidden');
+                window.renderAgentNotices();
+            }
+        };
+
+        window.switchSupervisorTab = (tab) => { 
+            window.currentSupervisorTab = tab; 
+            ['notices', 'users', 'handover'].forEach(t => {
+                const el = document.getElementById(`super-tab-${t}`);
+                if (el) {
+                    if (t === tab) el.className = "px-4 py-2 font-bold text-indigo-400 border-b-2 border-indigo-400 whitespace-nowrap";
+                    else el.className = "px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap";
+                }
+            });
+
+            const secNotices = document.getElementById('super-notices-section');
+            const secUsers = document.getElementById('super-users-section');
+            const secHandover = document.getElementById('super-handover-section');
+            const btnNewNotice = document.getElementById('new-notice-btn');
+
+            if(secNotices) secNotices.classList.add('hidden');
+            if(secUsers) secUsers.classList.add('hidden');
+            if(secHandover) secHandover.classList.add('hidden');
+            if(btnNewNotice) btnNewNotice.classList.add('hidden');
+
+            if (tab === 'users') {
+                if(secUsers) secUsers.classList.remove('hidden');
+                window.renderUsersTable();
+            } else if (tab === 'handover') {
+                if(secHandover) secHandover.classList.remove('hidden');
+                window.renderHandoverFeed();
+            } else {
+                if(secNotices) secNotices.classList.remove('hidden');
+                if(btnNewNotice) btnNewNotice.classList.remove('hidden');
+                window.renderSupervisorTable();
+            }
+        };
+
+        // --- 資料渲染邏輯 ---
+        window.renderAgentNotices = () => {
+            const container = document.getElementById('notice-grid');
+            if(!container) return;
+            const searchQuery = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase().trim() : "";
+            container.innerHTML = '';
+            
+            let filteredNotices = window.noticesData.filter(n => {
+                const isRead = !!n.readLogs?.find(log => log.userId === window.currentUser.id);
+                let matchTab = (window.currentAgentTab === 'active') ? (isNoticePublished(n) && !isRead) : (n.status === 'archived' || isRead);
+                let matchSearch = searchQuery ? (n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery)) : true;
+                return matchTab && matchSearch;
+            });
+
+            if (filteredNotices.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center text-gray-500 mt-10">目前沒有相關公告</div>`; return;
+            }
+
+            filteredNotices.forEach(notice => {
+                const userReadLog = notice.readLogs?.find(log => log.userId === window.currentUser.id);
+                const isRead = !!userReadLog;
+                let imgHtml = notice.photoBase64 ? `<img src="${notice.photoBase64}" onclick="window.viewFullImage(this.src)" class="mt-3 rounded-lg border border-gray-700 cursor-pointer hover:opacity-80 transition max-h-[150px] object-cover shadow-sm">` : '';
+                
+                let buttonHtml = '';
+                if (window.currentAgentTab === 'active') {
+                    buttonHtml = `<button onclick="window.acknowledgeNotice('${notice.id}')" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded font-medium shadow transition-colors">我已閱讀並理解</button>`;
+                } else if (window.currentAgentTab === 'history') {
+                    buttonHtml = isRead 
+                        ? `<button disabled class="mt-4 w-full bg-gray-700 text-green-400 py-2 rounded font-medium cursor-not-allowed border border-gray-600">✅ 已於 ${userReadLog.time} 簽收</button>`
+                        : `<button disabled class="mt-4 w-full bg-gray-700 text-red-400 py-2 rounded font-medium cursor-not-allowed border border-gray-600">公告已下架 (未簽收)</button>`;
+                }
+
+                container.innerHTML += `
+                    <div class="bg-gray-800 p-6 rounded-xl border-2 ${isRead ? 'border-gray-700' : 'border-indigo-500'} flex flex-col">
+                        <div class="mb-4 flex justify-between"><span class="text-xs font-bold border px-2 py-1 rounded ${notice.typeColor}">${notice.type}</span></div>
+                        <h3 class="text-xl font-bold text-white mb-2">${notice.title}</h3>
+                        <p class="text-gray-300 text-sm whitespace-pre-wrap flex-1 leading-relaxed">${notice.content}</p>
+                        ${imgHtml}
+                        ${buttonHtml}
+                    </div>`;
+            });
+        };
+
+        window.renderHandoverFeed = () => {
+            const drawContainer = (containerId, prefix) => {
+                const container = document.getElementById(containerId);
+                if(!container) return;
+                container.innerHTML = '';
+                
+                if (window.handoversData.length === 0) {
+                    container.innerHTML = `<div class="text-center text-gray-500 mt-10">目前尚無交接事項。</div>`; return;
+                }
+
+                window.handoversData.forEach(item => {
+                    const isResolved = item.status === 'resolved';
+                    let imgHtml = item.photoBase64 ? `<img src="${item.photoBase64}" onclick="window.viewFullImage(this.src)" class="mt-2 rounded-md border border-gray-700 cursor-pointer hover:opacity-80 max-h-[120px] object-cover shadow-sm">` : '';
+                    let updatesHtml = '';
+                    (item.updates || []).forEach(up => { 
+                        updatesHtml += `<div class="mt-3 pl-3 border-l-2 border-indigo-500/50"><span class="text-[10px] text-indigo-300 font-bold">${up.authorName} <span class="font-normal text-gray-500 ml-1">${up.timestamp}</span></span><p class="text-xs text-gray-300 mt-0.5 whitespace-pre-wrap">${up.content}</p></div>`; 
+                    });
+                    
+                    let actionAreaHtml = '';
+                    if (!isResolved) {
+                        actionAreaHtml = `
+                            <div class="mt-4 flex gap-2">
+                                <input type="text" id="handover-update-input-${prefix}-${item.id}" class="flex-1 bg-gray-900 border border-gray-600 rounded px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="打字並直接按結案，或按補充...">
+                                <button onclick="window.addHandoverUpdate('${item.id}', '${prefix}')" class="bg-gray-700 hover:bg-indigo-600 px-4 py-1.5 rounded text-xs text-white font-medium transition-colors shadow">補充</button>
+                                <button onclick="window.resolveHandover('${item.id}', '${prefix}')" class="bg-green-700 hover:bg-green-600 px-4 py-1.5 rounded text-xs text-white font-medium transition-colors shadow">結案</button>
+                            </div>`;
+                    } else {
+                        const resolveTimeStr = item.resolvedAt ? `<span class="font-normal text-gray-500 ml-1">(${item.resolvedAt})</span>` : '';
+                        actionAreaHtml = `
+                            <div class="mt-4 pt-3 border-t border-gray-700/50 text-right">
+                                <span class="text-xs text-green-400 font-bold">✅ 已由 ${item.resolvedByName || '未知'}${resolveTimeStr} 結案</span>
+                            </div>`;
+                    }
+
+                    container.innerHTML += `
+                        <div class="p-4 rounded-lg bg-gray-800 border border-gray-700 shadow mb-4 ${isResolved ? 'opacity-60' : ''}">
+                            <div class="flex justify-between items-center mb-1"><span class="font-bold text-white text-sm">👤 ${item.authorName}</span><span class="text-[10px] text-gray-500">${item.timestamp}</span></div>
+                            <p class="text-gray-200 text-sm whitespace-pre-wrap">${item.content}</p>
+                            ${imgHtml}
+                            ${updatesHtml}
+                            ${actionAreaHtml}
+                        </div>`;
+                });
+            };
+
+            drawContainer('agent-handover-feed', 'agent');
+            drawContainer('super-handover-feed', 'super');
+        };
+
+        window.renderTvNotices = () => {
+            const noticeContainer = document.getElementById('tv-notice-grid');
+            if(noticeContainer) {
+                noticeContainer.innerHTML = '';
+                window.noticesData.filter(n => isNoticePublished(n) && n.showOnTv !== false).slice(0, 4).forEach(notice => {
+                    let imgIcon = notice.photoBase64 ? `<div class="mt-2 text-[10px] text-indigo-400">🖼️ 附圖片 (請至電腦查看)</div>` : '';
+                    noticeContainer.innerHTML += `<div class="bg-gray-800 p-5 rounded-xl border-l-4 ${notice.typeColor} h-full flex flex-col shadow-lg"><h3 class="font-bold text-white mb-2 truncate text-lg">${notice.title}</h3><p class="text-gray-300 text-sm flex-1 overflow-hidden whitespace-pre-wrap">${notice.content}</p>${imgIcon}</div>`;
+                });
+            }
+            const handoverContainer = document.getElementById('tv-handover-feed');
+            if(handoverContainer) {
+                handoverContainer.innerHTML = '';
+                window.handoversData.filter(h => h.status === 'pending').forEach(item => {
+                    let imgIcon = item.photoBase64 ? `<span class="text-indigo-400 ml-2" title="附圖">🖼️</span>` : '';
+                    let latest = (item.updates && item.updates.length > 0) ? `<p class="text-[11px] text-gray-400 border-t border-gray-700 mt-2 pt-2 truncate">↳ ${item.updates[item.updates.length-1].content}</p>` : '';
+                    handoverContainer.innerHTML += `<div class="p-4 rounded-lg border-l-4 border-indigo-500 bg-gray-800 shadow-lg"><span class="font-bold text-white text-sm">${item.authorName}${imgIcon}</span><p class="text-gray-300 text-sm truncate mt-1">${item.content}</p>${latest}</div>`;
+                });
+            }
+        };
+
+        window.renderSupervisorTable = () => {
+            const tbody = document.getElementById('supervisor-table-body'); if(!tbody) return; tbody.innerHTML = '';
+            const agentUsers = window.usersData.filter(u => u.role !== 'supervisor'); const totalAgentsCount = agentUsers.length;
+            
+            if(window.noticesData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center">目前沒有任何公告。</td></tr>`; return;
+            }
+
+            window.noticesData.forEach(notice => {
+                const agentReadCount = (notice.readLogs || []).filter(log => agentUsers.some(u => u.email.toLowerCase() === log.userEmail)).length;
+                let statusBadge = notice.status === 'archived' ? '<span class="bg-gray-700 text-gray-400 px-2 py-1 rounded text-xs border border-gray-600">已封存</span>' : (notice.publishDate && new Date(notice.publishDate) > new Date() ? `<span class="bg-blue-900/40 text-blue-400 px-2 py-1 rounded text-xs border border-blue-800">⏳ 預排中</span>` : '<span class="bg-green-900/50 text-green-400 px-2 py-1 rounded text-xs border border-green-800">✅ 發布中</span>');
+                const tvIcon = notice.showOnTv === false ? '<span class="text-gray-500 ml-2 text-xs" title="未上看板">📺🚫</span>' : '';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-750 border-b border-gray-700/50">
+                        <td class="px-6 py-4 whitespace-nowrap">${statusBadge}</td>
+                        <td class="px-6 py-4 font-medium text-white">${notice.title} ${tvIcon}<br><span class="text-xs ${notice.typeColor} mt-1 inline-block">${notice.type}</span></td>
+                        <td class="px-6 py-4 text-yellow-400 font-bold whitespace-nowrap">${agentReadCount} / ${totalAgentsCount} 人已讀</td>
+                        <td class="px-6 py-4 text-right space-x-3 whitespace-nowrap">
+                            <button onclick="window.openUnreadModal('${notice.id}')" class="text-indigo-400 font-bold bg-indigo-900/40 px-3 py-1 rounded">追蹤</button>
+                            <button onclick="window.openNoticeModal('${notice.id}')" class="text-blue-400">編輯</button>
+                            ${notice.status === 'active' ? `<button onclick="window.archiveNotice('${notice.id}')" class="text-red-400">封存</button>` : `<button onclick="window.activateNotice('${notice.id}')" class="text-green-400">重啟</button>`}
+                        </td>
+                    </tr>`;
+            });
+        };
+        
+        window.renderUsersTable = () => {
+            const tbody = document.getElementById('users-table-body'); if(!tbody) return; tbody.innerHTML = '';
+            if(window.usersData.length === 0) { tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center">尚無員工帳號。</td></tr>`; return; }
+            window.usersData.forEach(user => {
+                const roleBadge = user.role === 'supervisor' ? '<span class="text-indigo-400 border border-indigo-400/50 bg-indigo-900/30 px-2 py-0.5 rounded text-xs">主管</span>' : '<span class="text-gray-400 border border-gray-600 bg-gray-800 px-2 py-0.5 rounded text-xs">客服</span>';
+                tbody.innerHTML += `
+                    <tr class="border-b border-gray-700/50 hover:bg-gray-750">
+                        <td class="px-6 py-3 text-white font-medium">👤 ${user.name}</td>
+                        <td class="px-6 py-3 text-gray-300">${user.email}</td>
+                        <td class="px-6 py-3">${roleBadge}</td>
+                        <td class="px-6 py-3 text-right"><button onclick="window.deleteUser('${user.id}', '${user.name}')" class="text-red-400 text-sm font-bold">移除</button></td>
+                    </tr>`;
+            });
+        };
+
+        // --- 視窗控制核心 ---
+        window.openNoticeModal = (noticeId = null) => {
+            const modal = document.getElementById('notice-modal'); if(!modal) return;
+            document.getElementById('modal-title').innerText = "發布新公告";
+            document.getElementById('modal-title-input').value = ""; document.getElementById('modal-content').value = "";
+            document.getElementById('modal-edit-id').value = ""; document.getElementById('modal-publish').value = "";
+            document.getElementById('modal-expiry').value = ""; document.getElementById('modal-show-on-tv').checked = true;
+            window.clearAttachedImage('notice');
+            if(document.getElementById('force-unread-container')) document.getElementById('force-unread-container').classList.add('hidden');
+
+            if (noticeId && typeof noticeId === 'string') {
+                const notice = window.noticesData.find(n => n.id === noticeId);
+                if (notice) {
+                    document.getElementById('modal-title').innerText = "編輯公告";
+                    document.getElementById('modal-type').value = notice.type; document.getElementById('modal-publish').value = notice.publishDate || "";
+                    document.getElementById('modal-title-input').value = notice.title; document.getElementById('modal-content').value = notice.content;
+                    document.getElementById('modal-expiry').value = notice.expiryDate || ""; document.getElementById('modal-edit-id').value = notice.id;
+                    document.getElementById('modal-show-on-tv').checked = notice.showOnTv !== false;
+                    if(notice.photoBase64) window.showImagePreview('notice', notice.photoBase64);
+                    if(document.getElementById('force-unread-container')) document.getElementById('force-unread-container').classList.remove('hidden');
+                    document.getElementById('modal-force-unread').checked = false;
+                }
+            }
+            modal.classList.remove('hidden');
+            setupClipboardPaste('modal-content', 'notice'); // 確保編輯視窗開啟時也啟用監聽
+        };
+        window.closeNoticeModal = () => { document.getElementById('notice-modal').classList.add('hidden'); };
+
+        window.openUnreadModal = (noticeId) => {
+            const notice = window.noticesData.find(n => n.id === noticeId); if(!notice) return;
+            document.getElementById('unread-modal-subtitle').innerText = `公告主題：${notice.title}`;
+            const readList = document.getElementById('read-modal-list'); const unreadList = document.getElementById('unread-modal-list');
+            readList.innerHTML = ''; unreadList.innerHTML = ''; let readCount = 0; let unreadCount = 0;
+            const readLogs = notice.readLogs || []; const agentUsers = window.usersData.filter(u => u.role !== 'supervisor');
+            agentUsers.forEach(user => {
+                const log = readLogs.find(l => l.userEmail === user.email.toLowerCase() || l.userName === user.name);
+                if (log) { readCount++; readList.innerHTML += `<li class="bg-gray-700/50 px-4 py-2 rounded text-sm text-gray-200 flex justify-between items-center border-l-4 border-green-500"><div>👤 ${user.name}</div><div class="text-[10px] bg-green-900/50 text-green-400 px-2 py-0.5 rounded">${log.time}</div></li>`; } 
+                else { unreadCount++; unreadList.innerHTML += `<li class="bg-gray-900/40 px-4 py-2 rounded text-sm text-red-400 border border-red-900/30">👤 ${user.name}</li>`; }
+            });
+            document.getElementById('read-count-num').innerText = readCount; document.getElementById('unread-count-num').innerText = unreadCount; 
+            document.getElementById('unread-modal').classList.remove('hidden');
+        };
+        window.closeUnreadModal = () => { document.getElementById('unread-modal').classList.add('hidden'); };
+
+        window.viewFullImage = (src) => {
+            const modal = document.getElementById('image-viewer-modal'); const fullImg = document.getElementById('full-image-el');
+            if(modal && fullImg) { fullImg.src = src; modal.classList.remove('hidden'); }
+        };
+        window.closeImageViewer = () => { document.getElementById('image-viewer-modal').classList.add('hidden'); };
+
+        // --- 資料與狀態更新邏輯 ---
+        window.addHandoverUpdate = async (id, prefix) => {
+            const inputEl = document.getElementById(`handover-update-input-${prefix}-${id}`);
+            if(!inputEl) return; const content = inputEl.value.trim(); if (!content) { window.showToast("請輸入補充內容", "error"); return; }
+            const handover = window.handoversData.find(h => h.id === id); if(!handover) return;
+            const newUpdate = { authorName: window.currentUser.name, content, timestamp: new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}), createdAt: Date.now() };
+            await updateDoc(doc(db, 'handovers', id), { updates: [...(handover.updates || []), newUpdate] });
+            inputEl.value = ''; window.showToast("📝 已補充進度");
+        };
+
+        window.resolveHandover = async (id, prefix) => { 
+            const inputEl = document.getElementById(`handover-update-input-${prefix}-${id}`);
+            const content = inputEl ? inputEl.value.trim() : "";
+            const handover = window.handoversData.find(h => h.id === id); if(!handover) return;
+
+            const timeStr = new Date().toLocaleString('zh-TW', {hour12: false});
+            let newUpdates = [...(handover.updates || [])];
+            if (content) {
+                newUpdates.push({
+                    authorName: window.currentUser.name, content: content, 
+                    timestamp: new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}), createdAt: Date.now() 
+                });
+            }
+            await updateDoc(doc(db, 'handovers', id), { status: 'resolved', resolvedByName: window.currentUser.name, resolvedAt: timeStr, updates: newUpdates }); 
+            if(inputEl) inputEl.value = '';
+            window.showToast("✅ 交接事項已結案！");
+        };
+
+        window.submitHandover = async () => {
+            const inputEl = document.getElementById('handover-input'); const content = inputEl.value.trim(); 
+            if (!content && !window.attachedImageBase64.handover) { window.showToast("請填寫交接事項內容或直接 Ctrl+V 貼上圖片！", "error"); return; }
+            await addDoc(collection(db, 'handovers'), { 
+                authorName: window.currentUser.name, content: content, photoBase64: window.attachedImageBase64.handover || null,
+                createdAt: Date.now(), timestamp: new Date().toLocaleString(), status: 'pending', updates: [] 
+            });
+            inputEl.value = ''; window.clearAttachedImage('handover'); window.showToast("✅ 交接發布成功！");
+        };
+
+        window.saveNotice = async () => {
+            const titleInput = document.getElementById('modal-title-input').value.trim();
+            const contentInput = document.getElementById('modal-content').value.trim();
+            if (!titleInput) { window.showToast("請填寫公告標題！", "error"); return; }
+
+            const noticeData = {
+                type: document.getElementById('modal-type').value, typeColor: getColorByType(document.getElementById('modal-type').value), publishDate: document.getElementById('modal-publish').value,
+                title: titleInput, content: contentInput, photoBase64: window.attachedImageBase64.notice || null,
+                expiryDate: document.getElementById('modal-expiry').value, showOnTv: document.getElementById('modal-show-on-tv').checked, status: 'active', readLogs: [], createdAt: Date.now()
+            };
+            const editId = document.getElementById('modal-edit-id').value;
+            if (editId) {
+                if (document.getElementById('modal-force-unread').checked) noticeData.readLogs = [];
+                await updateDoc(doc(db, 'notices', editId), noticeData);
+            } else { await addDoc(collection(db, 'notices'), noticeData); }
+            window.closeNoticeModal(); window.clearAttachedImage('notice'); window.showToast("📢 公告儲存成功！");
+        };
+
+        window.createNewAccount = async () => {
+            const name = document.getElementById('new-user-name').value.trim(); const email = document.getElementById('new-user-email').value.trim().toLowerCase(); const pass = document.getElementById('new-user-password').value.trim(); const role = document.getElementById('new-user-role').value;
+            if (!name || !email || !pass || pass.length < 6) return window.showToast("資料不完整或密碼少於 6 碼！", "error");
+            const q = query(collection(db, "users"), where("email", "==", email)); const snapshot = await getDocs(q);
+            if (!snapshot.empty) return window.showToast("此 Email 已經登記！", "error");
+            
+            const btn = document.getElementById('create-user-btn'); if(btn) btn.disabled = true;
+            let shouldAdd = false;
+            try { await createUserWithEmailAndPassword(secondaryAuth, email, pass); await secondaryAuth.signOut(); shouldAdd = true; } 
+            catch (e) { if (e.code === 'auth/email-already-in-use') shouldAdd = true; else window.showToast("❌ 建立失敗: " + e.message, "error"); }
+            if (shouldAdd) { 
+                await addDoc(collection(db, 'users'), { name, email, role, createdAt: new Date().toLocaleDateString() }); 
+                document.getElementById('new-user-name').value = ''; document.getElementById('new-user-email').value = ''; document.getElementById('new-user-password').value = ''; 
+                window.showToast(`✅ 帳號開通成功：${name}`);
+            }
+            if(btn) btn.disabled = false;
+        };
+
+        window.deleteUser = async (docId, userName) => { if (confirm(`⚠️ 確定要移除「${userName}」的登入權限嗎？`)) { await deleteDoc(doc(db, 'users', docId)); window.showToast("🗑️ 帳號已移除"); } };
+        window.archiveNotice = async (id) => { await updateDoc(doc(db, 'notices', id), { status: 'archived', expiryDate: "" }); window.showToast("📦 公告已封存"); };
+        window.activateNotice = async (id) => { await updateDoc(doc(db, 'notices', id), { status: 'active' }); window.showToast("🔄 公告已重啟"); };
+        window.acknowledgeNotice = async (id) => { 
+            const n = window.noticesData.find(x => x.id === id); if(!n) return;
+            const timeStr = `${new Date().getFullYear()}/${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')} ${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`;
+            const log = { userId: window.currentUser.id, userEmail: window.currentUser.email.toLowerCase(), time: timeStr, userName: window.currentUser.name };
+            await updateDoc(doc(db, 'notices', id), { readLogs: [...(n.readLogs || []), log] });
+            window.showToast("✅ 已簽收公告");
+        };
+
+        // --- 登入控制與 Firebase 監聽 ---
+        onAuthStateChanged(auth, async (user) => {
+            if (window.currentView === 'tv' && window.currentUser?.role === 'tv') return; 
+            if (user) {
+                let role = 'agent'; let name = user.email.split('@')[0];
+                if (user.email === 'manager@yourcompany.com') { role = 'supervisor'; name = '管理員'; } 
+                else {
+                    const q = query(collection(db, "users"), where("email", "==", user.email.toLowerCase()));
+                    const snapshot = await getDocs(q);
+                    if (snapshot.empty) {
+                        await signOut(auth);
+                        window.showToast("❌ 您的帳號已被停用或移除", "error");
+                        window.currentUser = null; window.showLoginView(); return;
+                    }
+                    const userData = snapshot.docs[0].data();
+                    name = userData.name; role = userData.role || 'agent';
+                }
+                window.currentUser = { id: user.uid, email: user.email, name: name, role: role };
+                window.currentView = role === 'supervisor' ? 'supervisor' : 'agent';
+                window.showAppLayout();
+            } else if (window.currentUser?.role !== 'tv') { window.currentUser = null; window.showLoginView(); }
+        });
+
+        window.performLocalLogin = async () => {
+            const email = document.getElementById('login-account').value.trim(); const pass = document.getElementById('login-password').value.trim();
+            if (!email || !pass) { window.showToast("請輸入帳號與密碼", "error"); return; }
+            try { await signInWithEmailAndPassword(auth, email, pass); } catch (e) { window.showToast("❌ 登入失敗：帳號或密碼錯誤！", "error"); }
+        };
+
+        window.devTvLogin = () => { 
+            localStorage.setItem('shiftSystemTvMode', 'true'); 
+            window.currentUser = { id: 'tv-001', name: "辦公室電視看板", role: "tv" }; window.currentView = 'tv';
+            window.showAppLayout(); if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(e=>console.log(e)); 
+        };
+
+        window.logout = async () => { localStorage.removeItem('shiftSystemTvMode'); if (document.fullscreenElement) document.exitFullscreen().catch(e=>console.log(e)); await signOut(auth); };
+
+        window.exitTvMode = async () => { 
+            localStorage.removeItem('shiftSystemTvMode'); 
+            if (document.fullscreenElement) await document.exitFullscreen().catch(e=>console.log(e)); 
+            if (window.currentUser && window.currentUser.role === 'tv') {
+                await signOut(auth); window.location.reload(); 
+            } else {
+                window.currentView = window.currentUser?.role || 'login'; window.renderCurrentView(); 
+            }
+        };
+
+        window.resetPassword = async () => { const email = document.getElementById('login-account').value.trim(); if (!email) return window.showToast("請先在上方輸入您的信箱", "error"); await sendPasswordResetEmail(auth, email); window.showToast("✅ 密碼重設信已寄出"); };
+        window.changePassword = async () => { const pass = prompt("請輸入新密碼 (至少6碼)"); if (pass && pass.length >= 6) { try { await updatePassword(auth.currentUser, pass); window.showToast("✅ 密碼修改成功"); } catch(e) { window.showToast("安全驗證逾時，請重新登入", "error"); window.logout(); } } };
+        window.toggleView = () => { window.currentView = window.currentView === 'agent' ? 'supervisor' : 'agent'; window.renderCurrentView(); };
+
+        // ─── 系統時鐘與資料監聽 ───
+        window.updateClock = () => {
+            const now = new Date(); const timeStr = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+            const days = ['日','一','二','三','四','五','六']; const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} 星期${days[now.getDay()]}`;
+            if(document.getElementById('live-time')) document.getElementById('live-time').innerText = timeStr;
+            if(document.getElementById('live-date')) document.getElementById('live-date').innerText = dateStr;
+            if(document.getElementById('tv-live-time')) document.getElementById('tv-live-time').innerText = timeStr;
+            if(document.getElementById('tv-live-date')) document.getElementById('tv-live-date').innerText = dateStr;
+            
+            if (now.getSeconds() % 10 === 0 && window.noticesData) {
+                window.noticesData.forEach(n => { if (n.status === 'active' && n.expiryDate && now > new Date(n.expiryDate)) { updateDoc(doc(db, 'notices', n.id), { status: 'archived' }); } });
+            }
+            if (now.getSeconds() === 0 && window.currentUser) { window.renderCurrentView(); }
+        };
+
+        onSnapshot(collection(db, "notices"), (snapshot) => {
+            window.noticesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.createdAt - a.createdAt);
+            if(window.currentUser) window.renderCurrentView();
+        });
+
+        onSnapshot(collection(db, "handovers"), (snapshot) => {
+            window.handoversData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.createdAt - a.createdAt);
+            if(window.currentUser) { if (window.currentView === 'tv') window.renderTvNotices(); else window.renderHandoverFeed(); }
+        });
+
+        onSnapshot(collection(db, "users"), (snapshot) => {
+            window.usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            if(window.currentUser && window.currentView === 'supervisor') { window.renderSupervisorTable(); window.renderUsersTable(); }
+        });
+
+        if (localStorage.getItem('shiftSystemTvMode') === 'true') {
+            window.currentUser = { id: 'tv-001', name: "辦公室電視看板", role: "tv" }; window.currentView = 'tv'; setTimeout(() => window.showAppLayout(), 100); 
+        }
+        setInterval(window.updateClock, 1000); window.updateClock();
+    </script>
+</body>
+</html>
