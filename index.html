@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>客服輪班重要事項宣導系統 - 完美貼圖版</title>
+    <title>客服輪班重要事項宣導系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
@@ -11,17 +11,36 @@
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
         .tv-scroll::-webkit-scrollbar { display: none; }
-        .tv-scroll { -ms-overflow-style: none; scrollbar-width: none; }
         input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.7; cursor: pointer; }
         
         .img-preview-box { max-width: 150px; position: relative; display: none; margin-top: 8px; }
         .img-preview-box img { width: 100%; border-radius: 8px; border: 2px solid #6366f1; }
-        .img-remove-btn { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; }
+        .img-remove-btn { position: absolute; top: -8px; right: -8px; background: #ef4444; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; color: white; z-index: 10; }
+        
+        .mention-dropdown { position: absolute; background: #1f2937; border: 1px solid #4b5563; border-radius: 8px; max-height: 150px; overflow-y: auto; display: none; z-index: 100; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); width: 200px; margin-top: 4px; }
+        .mention-item { padding: 8px 12px; cursor: pointer; font-size: 13px; color: #e5e7eb; border-bottom: 1px solid #374151; }
+        .mention-item:last-child { border-bottom: none; }
+        .mention-item:hover { background: #4f46e5; color: #fff; }
+        .mention-glow { animation: red-glow 1.5s infinite alternate; border: 2px solid #ef4444 !important; }
+        @keyframes red-glow { from { box-shadow: 0 0 5px rgba(239, 68, 68, 0.4); } to { box-shadow: 0 0 15px rgba(239, 68, 68, 0.8); } }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col">
+<body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col relative">
+
+    <div id="mention-alert-bar" class="fixed top-0 inset-x-0 bg-red-600 text-white font-bold text-center py-3 px-4 shadow-2xl z-[999] transform -translate-y-full transition-transform duration-300 flex justify-between items-center hidden">
+        <div class="flex-1 text-sm md:text-base flex items-center justify-center gap-2"><span>🚨</span> <span id="mention-alert-text">有人在交接中標記了您，請前往確認！</span></div>
+        <button onclick="window.dismissOnlineAlert()" class="bg-black/30 hover:bg-black/50 text-xs px-3 py-1.5 rounded-md border border-white/20 transition-colors">我知道了</button>
+    </div>
+
+    <div id="login-mention-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-[1000]">
+        <div class="bg-gray-800 border-2 border-red-500 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
+            <div class="text-6xl mb-4">⚠️</div>
+            <h2 class="text-2xl font-black text-white mb-2">待辦指名提醒</h2>
+            <p id="login-mention-text" class="text-gray-300 mb-6">您好，有幾筆未結案交接指名由您處理。</p>
+            <button onclick="window.confirmLoginMention()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all text-lg">確認已收到，前往專區</button>
+        </div>
+    </div>
 
     <div id="toast-container" class="fixed bottom-6 right-6 z-[200] flex flex-col gap-3 pointer-events-none"></div>
 
@@ -41,7 +60,7 @@
         </div>
     </div>
 
-    <div id="app-layout" class="hidden flex-1 flex flex-col h-screen">
+    <div id="app-layout" class="hidden flex-1 flex flex-col h-full overflow-hidden">
         <div id="marquee-container" class="bg-red-600 text-white px-4 py-2 flex overflow-hidden text-sm font-bold shadow-md shrink-0 hidden z-50">
             <span class="mr-4 whitespace-nowrap">🚨 [緊急通知]</span>
             <div class="flex-1 overflow-hidden relative"><div class="animate-marquee" id="global-marquee"></div></div>
@@ -97,23 +116,24 @@
                 </div>
                 <div id="notice-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-6 overflow-y-auto pb-6 pr-2"></div>
                 <div id="handover-section" class="hidden flex-col h-full">
-                    <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 mb-6 shrink-0 shadow-lg">
-                        <h3 class="text-lg font-bold text-white mb-3">📝 發布交接事項 (支持 Ctrl+V 直接貼圖)</h3>
-                        <div class="flex flex-col gap-3">
-                            <textarea id="handover-input" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none focus:border-indigo-500 resize-none transition-colors" placeholder="請輸入交接內容或直接在此 Ctrl+V 貼上截圖..."></textarea>
-                            
+                    <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 mb-6 shrink-0 shadow-lg relative">
+                        <h3 class="text-lg font-bold text-white mb-3">📝 發布交接事項 (輸入 @ 標記同仁)</h3>
+                        <div class="flex flex-col gap-3 relative w-full">
+                            <div class="relative w-full">
+                                <textarea id="handover-input" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none focus:border-indigo-500 resize-none transition-colors" placeholder="請輸入交接內容或直接在此 Ctrl+V 貼上截圖..."></textarea>
+                                <div id="agent-mention-list" class="mention-dropdown"></div>
+                            </div>
                             <div class="flex justify-between items-center">
                                 <div id="handover-img-preview" class="img-preview-box">
                                     <div class="img-remove-btn" onclick="window.clearAttachedImage('handover')">×</div>
                                     <img id="preview-img-handover" src="">
                                 </div>
-                                
                                 <div class="flex items-center gap-3 ml-auto">
                                     <label class="cursor-pointer text-indigo-400 hover:text-indigo-300 text-sm flex items-center gap-1">
                                         📎 檔案上傳
                                         <input type="file" id="handover-file" class="hidden" accept="image/*" onchange="window.handleFileSelect(this, 'handover')">
                                     </label>
-                                    <button onclick="window.submitHandover()" id="submit-handover-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium shadow">發布交接</button>
+                                    <button onclick="window.submitHandover('handover-input', 'handover')" id="submit-handover-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium shadow">發布交接</button>
                                 </div>
                             </div>
                         </div>
@@ -144,7 +164,7 @@
                 </div>
                 
                 <div id="super-users-section" class="hidden flex-col xl:flex-row gap-6 shrink-0">
-                    <div class="w-full xl:w-1/3 bg-gray-800 p-6 rounded-xl border border-gray-700 h-fit shadow-lg">
+                    <div class="w-full xl:w-1/3 bg-gray-800 p-6 rounded-xl border border-gray-700 h-fit shadow-lg shrink-0">
                         <h3 class="text-lg font-bold text-white mb-4">➕ 建立新帳號</h3>
                         <div class="space-y-4">
                             <input type="text" id="new-user-name" placeholder="員工姓名" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-indigo-500">
@@ -158,10 +178,10 @@
                         </div>
                     </div>
                     <div class="w-full xl:w-2/3 bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex-1 flex flex-col overflow-hidden">
-                        <h3 class="text-lg font-bold text-white mb-4">👥 人員清單</h3>
-                        <div class="overflow-x-auto flex-1">
+                        <h3 class="text-lg font-bold text-white mb-4 shrink-0">👥 人員清單</h3>
+                        <div class="overflow-x-auto overflow-y-auto flex-1 h-full">
                             <table class="w-full text-left text-sm text-gray-300 min-w-[500px]">
-                                <thead class="bg-gray-700"><tr><th class="px-6 py-3">姓名</th><th class="px-6 py-3">Email</th><th class="px-6 py-3">權限</th><th class="px-6 py-3 text-right">操作</th></tr></thead>
+                                <thead class="bg-gray-700 sticky top-0"><tr><th class="px-6 py-3">姓名</th><th class="px-6 py-3">Email</th><th class="px-6 py-3">權限</th><th class="px-6 py-3 text-right">操作</th></tr></thead>
                                 <tbody id="users-table-body" class="divide-y divide-gray-700"></tbody>
                             </table>
                         </div>
@@ -169,15 +189,40 @@
                 </div>
 
                 <div id="super-handover-section" class="hidden flex-col h-full flex-1 min-h-0">
+                    <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 mb-6 shrink-0 shadow-lg relative">
+                        <h3 class="text-lg font-bold text-white mb-3">👑 指派交接事項 (主管專區，支援 Ctrl+V 貼圖)</h3>
+                        <div class="flex flex-col gap-3 relative w-full">
+                            <div class="relative w-full">
+                                <textarea id="super-handover-input" rows="2" class="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none focus:border-indigo-500 resize-none transition-colors" placeholder="請在此輸入欲指派給全體客服的任務內容，打 @ 可標記..."></textarea>
+                                <div id="super-mention-list" class="mention-dropdown"></div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <div id="super-img-preview" class="img-preview-box">
+                                    <div class="img-remove-btn" onclick="window.clearAttachedImage('super')">×</div>
+                                    <img id="preview-img-super" src="">
+                                </div>
+                                <div class="flex items-center gap-3 ml-auto">
+                                    <label class="cursor-pointer text-indigo-400 hover:text-indigo-300 text-sm flex items-center gap-1">
+                                        📎 檔案上傳
+                                        <input type="file" id="super-handover-file" class="hidden" accept="image/*" onchange="window.handleFileSelect(this, 'super')">
+                                    </label>
+                                    <button onclick="window.submitHandover('super-handover-input', 'super')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium shadow">指派交接</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div id="super-handover-feed" class="flex-1 overflow-y-auto space-y-4 pb-6 pr-2"></div>
                 </div>
             </main>
 
-            <aside id="main-sidebar" class="w-full md:w-64 bg-gray-800 border-l border-gray-700 p-6 flex flex-col shrink-0">
+            <aside id="main-sidebar" class="w-full md:w-64 bg-gray-800 border-l border-gray-700 p-6 flex flex-col shrink-0 gap-4">
                 <div class="text-center p-6 bg-gray-900 rounded-xl border border-gray-700 shadow-inner">
                     <div id="live-time" class="text-3xl font-mono font-bold text-white mb-2 tracking-wider">00:00:00</div>
                     <div id="live-date" class="text-gray-400 text-sm">YYYY/MM/DD</div>
                 </div>
+                <button id="audio-auth-btn" onclick="window.enableAudioEngine()" class="w-full py-3 px-4 rounded-xl font-bold border-2 border-dashed border-yellow-500/50 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 transition-all flex items-center justify-center gap-2 shadow shrink-0">
+                    <span>🔊 點此啟用現場音效通知</span>
+                </button>
             </aside>
         </div>
     </div>
@@ -188,8 +233,15 @@
             <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <select id="modal-type" class="bg-gray-900 border border-gray-700 rounded p-2 text-white outline-none focus:border-indigo-500">
-                        <option value="系統 Bug">系統 Bug</option><option value="話術變更">話術變更</option>
-                        <option value="行政通知">行政通知</option><option value="緊急通知">緊急通知</option>
+                        <option value="系統 Bug">🐛 系統 Bug</option>
+                        <option value="話術變更">🗣️ 話術變更</option>
+                        <option value="行政通知">📋 行政通知</option>
+                        <option value="緊急通知">🚨 緊急通知</option>
+                        <option value="排班公告">🗓️ 排班公告</option>
+                        <option value="調價公告">💰 調價公告</option>
+                        <option value="行銷公告">📣 行銷公告</option>
+                        <option value="開場公告">✨ 開場公告</option>
+                        <option value="撤場公告">🛑 撤場公告</option>
                     </select>
                     <input type="datetime-local" id="modal-publish" class="bg-gray-900 border border-gray-700 rounded p-2 text-white outline-none focus:border-indigo-500" title="預排上架時間">
                 </div>
@@ -255,7 +307,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, addDoc, updateDoc, doc, deleteDoc, onSnapshot, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, updateDoc, doc, deleteDoc, onSnapshot, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCXe0zGBQh8_9U_XQ3EkjOcJAJPPmsDFAI",
@@ -279,59 +331,144 @@
         window.noticesData = [];
         window.handoversData = [];
         window.usersData = [];
-        
-        window.attachedImageBase64 = { notice: null, handover: null };
+        window.attachedImageBase64 = { notice: null, handover: null, super: null };
+        window.audioContext = null;
+        window.isAudioEnabled = false;
+        let isFirstNoticesLoad = true;
+        let isFirstHandoversLoad = true;
+        window.tabFlashTimer = null;
+        window.originalTitle = "客服輪班重要事項宣導系統";
+        window.isNoticeFlashActive = false;
+        window.isHandoverFlashActive = false;
+        window.isMentionFlashActive = false; 
 
-        // --- 核心共用函式 ---
-        window.showToast = (message, type = 'success') => {
-            const container = document.getElementById('toast-container');
-            if(!container) return;
-            const toast = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-green-600' : 'bg-red-600';
-            toast.className = `${bgColor} text-white px-5 py-3 rounded-lg shadow-xl mb-2 flex items-center gap-2 font-medium border border-white/10`;
-            toast.innerHTML = `<span>${message}</span>`;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
+        window.enableAudioEngine = () => {
+            try {
+                window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                window.isAudioEnabled = true;
+                const btn = document.getElementById('audio-auth-btn');
+                if (btn) {btn.className = "w-full py-3 px-4 rounded-xl font-bold bg-green-500/10 text-green-400 border-2 border-green-500/30 flex items-center justify-center gap-2 shadow shrink-0";btn.innerHTML = "<span>✅ 即時音效通知已啟用</span>";}
+                window.playBeepTone(523.25, 0.12);
+            } catch (e) {}
         };
 
-        function isNoticePublished(notice) {
-            if (notice.status !== 'active') return false;
-            if (!notice.publishDate) return true; 
-            return new Date(notice.publishDate) <= new Date(); 
-        }
+        window.playBeepTone = (frequency, duration) => {
+            if (!window.isAudioEnabled || !window.audioContext) return;
+            try {
+                const osc = window.audioContext.createOscillator();
+                const gain = window.audioContext.createGain();
+                osc.type = 'sine'; osc.frequency.value = frequency;
+                gain.gain.setValueAtTime(0.15, window.audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, window.audioContext.currentTime + duration);
+                osc.connect(gain); gain.connect(window.audioContext.destination);osc.start(); osc.stop(window.audioContext.currentTime + duration);
+            } catch (err) {}
+        };
 
+        window.playNoticeAlert = () => { if (!window.isAudioEnabled) return; window.playBeepTone(587.33, 0.1); setTimeout(() => window.playBeepTone(698.46, 0.15), 120); };
+        window.playHandoverAlert = () => { window.playBeepTone(440, 0.15); };
+        window.playMentionAlarm = () => { if (!window.isAudioEnabled) return; [880, 880, 880].forEach((f, i) => setTimeout(() => window.playBeepTone(f, 0.15), i * 150)); };
+
+        window.startTabFlashing = (type) => {
+            if (window.currentUser && window.currentUser.role === 'supervisor') return;
+            if (type === 'notice') window.isNoticeFlashActive = true;
+            if (type === 'handover') window.isHandoverFlashActive = true;
+            if (type === 'mention') window.isMentionFlashActive = true;
+            if (window.isMentionFlashActive) {const bar = document.getElementById('mention-alert-bar');if (bar) {bar.classList.remove('hidden');setTimeout(() => bar.classList.remove('-translate-y-full'), 50);}}
+            if (window.tabFlashTimer) return; 
+            let isAlt = false;
+            window.tabFlashTimer = setInterval(() => {
+                let alertText = "";
+                if (window.isMentionFlashActive) alertText = "🔴 【您被指名提及了！】";
+                else if (window.isNoticeFlashActive && window.isHandoverFlashActive) alertText = "🔴 【有新公告與交接事項！】";
+                else if (window.isNoticeFlashActive) alertText = "🔴 【有尚未簽收的新公告！】";
+                else if (window.isHandoverFlashActive) alertText = "🔴 【有未處理的交接事項！】";
+                document.title = isAlt ? alertText : window.originalTitle;
+                isAlt = !isAlt;
+            }, 800);
+        };
+
+        window.stopTabFlashing = (type) => {
+            if (type === 'notice') window.isNoticeFlashActive = false;
+            if (type === 'handover') window.isHandoverFlashActive = false;
+            if (type === 'mention') {window.isMentionFlashActive = false;const bar = document.getElementById('mention-alert-bar');if (bar) {bar.classList.add('-translate-y-full');setTimeout(() => bar.classList.add('hidden'), 300);}}
+            if (!window.isNoticeFlashActive && !window.isHandoverFlashActive && !window.isMentionFlashActive) {if (window.tabFlashTimer) { clearInterval(window.tabFlashTimer); window.tabFlashTimer = null; }document.title = window.originalTitle;}
+        };
+
+        window.setupMentionDropdown = (inputId, listId) => {
+            const input = document.getElementById(inputId); const list = document.getElementById(listId);
+            if(!input || !list) return;
+            input.addEventListener('input', () => {
+                const val = input.value; const cursor = input.selectionStart;
+                const textBefore = val.substring(0, cursor); const atIndex = textBefore.lastIndexOf('@');
+                if (atIndex !== -1 && (atIndex === 0 || /\s/.test(textBefore[atIndex - 1]))) {
+                    const query = textBefore.substring(atIndex + 1).toLowerCase();
+                    if (query.includes(' ')) { list.style.display = 'none'; return; }
+                    const filtered = window.usersData.filter(u => u.name.toLowerCase().includes(query));
+                    if (filtered.length > 0) {
+                        list.innerHTML = filtered.map(u => `<div class="mention-item" onclick="window.insertMention('${u.name}', '${inputId}', '${listId}', ${atIndex}, ${cursor})">👤 ${u.name}</div>`).join('');
+                        list.style.display = 'block';
+                    } else { list.style.display = 'none'; }
+                } else { list.style.display = 'none'; }
+            });
+        };
+
+        window.insertMention = (name, inputId, listId, atIndex, cursor) => {
+            const input = document.getElementById(inputId); const val = input.value;
+            input.value = val.substring(0, atIndex) + '@' + name + ' ' + val.substring(cursor);
+            document.getElementById(listId).style.display = 'none'; input.focus();
+        };
+
+        window.showToast = (message, type = 'success') => {
+            const container = document.getElementById('toast-container'); if(!container) return;
+            const toast = document.createElement('div'); const bgColor = type === 'success' ? 'bg-green-600' : 'bg-red-600';
+            toast.className = `${bgColor} text-white px-5 py-3 rounded-lg shadow-xl mb-2 flex items-center gap-2 font-medium border border-white/10`;
+            toast.innerHTML = `<span>${message}</span>`;container.appendChild(toast); setTimeout(() => toast.remove(), 3000);
+        };
+
+        function isNoticePublished(notice) { if (notice.status !== 'active') return false; if (!notice.publishDate) return true; return new Date(notice.publishDate) <= new Date(); }
+        
         function getColorByType(type) { 
             switch(type){ 
                 case "系統 Bug": return "text-red-400 border-red-400"; 
                 case "話術變更": return "text-yellow-400 border-yellow-400"; 
                 case "行政通知": return "text-blue-400 border-blue-400"; 
                 case "緊急通知": return "text-purple-400 border-purple-400"; 
+                case "排班公告": return "text-sky-400 border-sky-400"; 
+                case "調價公告": return "text-amber-400 border-amber-400"; 
+                case "行銷公告": return "text-pink-400 border-pink-400"; 
+                case "開場公告": return "text-emerald-400 border-emerald-400"; 
+                case "撤場公告": return "text-gray-400 border-gray-400"; 
                 default: return "text-gray-400 border-gray-400"; 
             } 
         }
 
-        // --- 圖片處理引擎 (含貼上事件監聽) ---
+        function getIconByType(type) {
+            switch(type){
+                case "系統 Bug": return "🐛";
+                case "話術變更": return "🗣️";
+                case "行政通知": return "📋";
+                case "緊急通知": return "🚨";
+                case "排班公告": return "🗓️";
+                case "調價公告": return "💰";
+                case "行銷公告": return "📣";
+                case "開場公告": return "✨";
+                case "撤場公告": return "🛑";
+                default: return "📌";
+            }
+        }
+
         window.processAndCompressImage = async (file) => {
             return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
+                const reader = new FileReader(); reader.readAsDataURL(file);
                 reader.onload = (event) => {
-                    const img = new Image();
-                    img.src = event.target.result;
+                    const img = new Image(); img.src = event.target.result;
                     img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        let width = img.width; let height = img.height;
-                        const MAX_WIDTH = 800; 
+                        const canvas = document.createElement('canvas'); let width = img.width; let height = img.height; const MAX_WIDTH = 800; 
                         if (width > MAX_WIDTH) { height = Math.round((height * MAX_WIDTH) / width); width = MAX_WIDTH; }
                         canvas.width = width; canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
+                        const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
                         const base64String = canvas.toDataURL('image/jpeg', 0.5); 
-                        if (base64String.length > 800000) {
-                            window.showToast("❌ 圖片過大，請截取較小範圍！", "error"); resolve(null);
-                        } else {
-                            resolve(base64String);
-                        }
+                        if (base64String.length > 800000) { window.showToast("❌ 圖片過大，請截取較小範圍！", "error"); resolve(null); } else { resolve(base64String); }
                     };
                 };
             });
@@ -339,134 +476,79 @@
 
         window.handleFileSelect = async (input, type) => {
             if (input.files && input.files[0]) {
-                const file = input.files[0];
-                const base64 = await window.processAndCompressImage(file);
-                if (base64) {
-                    window.attachedImageBase64[type] = base64;
-                    window.showImagePreview(type, base64);
-                }
+                const base64 = await window.processAndCompressImage(input.files[0]);
+                if (base64) { window.attachedImageBase64[type] = base64; window.showImagePreview(type, base64); }
                 input.value = '';
             }
         };
 
-        // 🚨 關鍵補回：監聽輸入框的 Ctrl+V 鍵盤貼上事件
         function setupClipboardPaste(textareaId, type) {
-            const el = document.getElementById(textareaId);
-            if (!el) return;
+            const el = document.getElementById(textareaId); if (!el) return;
             el.addEventListener('paste', async (e) => {
                 const items = (e.clipboardData || e.originalEvent.clipboardData).items;
                 for (let i = 0; i < items.length; i++) {
                     if (items[i].type.indexOf('image') !== -1) {
-                        const file = items[i].getAsFile();
                         window.showToast("🖼️ 正在處理剪貼簿圖片...");
-                        const base64 = await window.processAndCompressImage(file);
-                        if (base64) {
-                            window.attachedImageBase64[type] = base64;
-                            window.showImagePreview(type, base64);
-                        }
-                        e.preventDefault(); // 阻止把假檔名或亂碼文字貼進輸入框
-                        break;
+                        const base64 = await window.processAndCompressImage(items[i].getAsFile());
+                        if (base64) { window.attachedImageBase64[type] = base64; window.showImagePreview(type, base64); }
+                        e.preventDefault(); break;
                     }
                 }
             });
         }
 
         window.showImagePreview = (type, base64) => {
-            const previewBox = document.getElementById(`${type}-img-preview`);
-            const previewImg = document.getElementById(`preview-img-${type}`);
-            if (previewBox && previewImg) {
-                previewImg.src = base64;
-                previewBox.style.display = 'block';
-            }
+            const previewBox = document.getElementById(`${type}-img-preview`); const previewImg = document.getElementById(`preview-img-${type}`);
+            if (previewBox && previewImg) { previewImg.src = base64; previewBox.style.display = 'block'; }
         };
 
         window.clearAttachedImage = (type) => {
             window.attachedImageBase64[type] = null;
-            const previewBox = document.getElementById(`${type}-img-preview`);
-            const previewImg = document.getElementById(`preview-img-${type}`);
-            if (previewBox && previewImg) {
-                previewBox.style.display = 'none';
-                previewImg.src = '';
-            }
+            const previewBox = document.getElementById(`${type}-img-preview`); const previewImg = document.getElementById(`preview-img-${type}`);
+            if (previewBox && previewImg) { previewBox.style.display = 'none'; previewImg.src = ''; }
         };
 
-        // --- UI 顯示基本核心控制 ---
-        window.showLoginView = () => { 
-            document.getElementById('login-view').classList.remove('hidden'); 
-            document.getElementById('app-layout').classList.add('hidden'); 
-        };
-
+        window.showLoginView = () => { document.getElementById('login-view').classList.remove('hidden'); document.getElementById('app-layout').classList.add('hidden'); };
         window.showAppLayout = () => { 
-            document.getElementById('login-view').classList.add('hidden'); 
-            document.getElementById('app-layout').classList.remove('hidden'); 
+            document.getElementById('login-view').classList.add('hidden'); document.getElementById('app-layout').classList.remove('hidden'); 
             if(window.currentUser && window.currentUser.role !== 'tv'){ 
                 document.getElementById('user-greeting').innerText = `哈囉, ${window.currentUser.name}`; 
                 document.getElementById('role-badge').innerText = window.currentUser.role === 'supervisor' ? '主管' : '客服'; 
             } 
             window.renderCurrentView(); 
-            // 重新載入時綁定貼上事件監聽
-            setupClipboardPaste('handover-input', 'handover');
-            setupClipboardPaste('modal-content', 'notice');
+            setupClipboardPaste('handover-input', 'handover'); setupClipboardPaste('super-handover-input', 'super'); setupClipboardPaste('modal-content', 'notice');
+            window.setupMentionDropdown('handover-input', 'agent-mention-list'); window.setupMentionDropdown('super-handover-input', 'super-mention-list');
         };
 
         window.renderCurrentView = () => {
-            const header = document.getElementById('main-header');
-            const sidebar = document.getElementById('main-sidebar');
-            const exitBtn = document.getElementById('tv-exit-btn');
-            
-            const agentView = document.getElementById('agent-view');
-            const superView = document.getElementById('supervisor-view');
-            const tvView = document.getElementById('tv-view');
-
-            if(agentView) agentView.classList.add('hidden');
-            if(superView) superView.classList.add('hidden');
-            if(tvView) tvView.classList.add('hidden');
-
+            const header = document.getElementById('main-header'); const sidebar = document.getElementById('main-sidebar'); const exitBtn = document.getElementById('tv-exit-btn');
+            const agentView = document.getElementById('agent-view'); const superView = document.getElementById('supervisor-view'); const tvView = document.getElementById('tv-view');
+            if(agentView) agentView.classList.add('hidden'); if(superView) superView.classList.add('hidden'); if(tvView) tvView.classList.add('hidden');
             if (window.currentView === 'tv') { 
-                if(header) header.classList.add('hidden'); 
-                if(sidebar) sidebar.classList.add('hidden'); 
-                if(exitBtn) exitBtn.classList.remove('hidden');
+                if(header) header.classList.add('hidden'); if(sidebar) sidebar.classList.add('hidden'); if(exitBtn) exitBtn.classList.remove('hidden');
                 if(tvView) { tvView.classList.remove('hidden'); tvView.classList.add('flex'); }
                 window.renderTvNotices(); 
             } else { 
-                if(header) header.classList.remove('hidden'); 
-                if(sidebar) sidebar.classList.remove('hidden');
-                if(exitBtn) exitBtn.classList.add('hidden');
-
-                if (window.currentView === 'agent') { 
-                    if(agentView) agentView.classList.remove('hidden'); 
-                    window.switchAgentTab(window.currentAgentTab); 
-                } else if (window.currentView === 'supervisor') { 
-                    if(superView) superView.classList.remove('hidden');
-                    window.switchSupervisorTab(window.currentSupervisorTab); 
-                }
+                if(header) header.classList.remove('hidden'); if(sidebar) sidebar.classList.remove('hidden'); if(exitBtn) exitBtn.classList.add('hidden');
+                if (window.currentView === 'agent') { if(agentView) agentView.classList.remove('hidden'); window.switchAgentTab(window.currentAgentTab); } 
+                else if (window.currentView === 'supervisor') { if(superView) superView.classList.remove('hidden'); window.switchSupervisorTab(window.currentSupervisorTab); }
             }
         };
+
+        window.dismissOnlineAlert = () => { window.stopTabFlashing('mention'); };
 
         window.switchAgentTab = (tab) => { 
             window.currentAgentTab = tab; 
             ['active', 'history', 'handover'].forEach(t => {
                 const el = document.getElementById(`tab-${t}`);
-                if (el) {
-                    if (t === tab) el.className = "px-4 py-2 font-bold text-indigo-400 border-b-2 border-indigo-400 whitespace-nowrap";
-                    else el.className = "px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap";
-                }
+                if (el) { el.className = t === tab ? "px-4 py-2 font-bold text-indigo-400 border-b-2 border-indigo-400 whitespace-nowrap" : "px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap"; }
             });
-            
-            const noticeGrid = document.getElementById('notice-grid');
-            const searchContainer = document.getElementById('search-container');
-            const handoverSection = document.getElementById('handover-section');
-
+            const noticeGrid = document.getElementById('notice-grid'); const searchContainer = document.getElementById('search-container'); const handoverSection = document.getElementById('handover-section');
             if (tab === 'handover') {
-                if(noticeGrid) noticeGrid.classList.add('hidden');
-                if(searchContainer) searchContainer.classList.add('hidden'); 
-                if(handoverSection) handoverSection.classList.remove('hidden');
-                window.renderHandoverFeed();
-                setupClipboardPaste('handover-input', 'handover');
+                if(noticeGrid) noticeGrid.classList.add('hidden'); if(searchContainer) searchContainer.classList.add('hidden'); if(handoverSection) handoverSection.classList.remove('hidden');
+                window.renderHandoverFeed(); window.stopTabFlashing('handover'); window.stopTabFlashing('mention');
             } else {
-                if(noticeGrid) noticeGrid.classList.remove('hidden');
-                if(searchContainer) searchContainer.classList.remove('hidden'); 
-                if(handoverSection) handoverSection.classList.add('hidden');
+                if(noticeGrid) noticeGrid.classList.remove('hidden'); if(searchContainer) searchContainer.classList.remove('hidden'); if(handoverSection) handoverSection.classList.add('hidden');
                 window.renderAgentNotices();
             }
         };
@@ -475,125 +557,90 @@
             window.currentSupervisorTab = tab; 
             ['notices', 'users', 'handover'].forEach(t => {
                 const el = document.getElementById(`super-tab-${t}`);
-                if (el) {
-                    if (t === tab) el.className = "px-4 py-2 font-bold text-indigo-400 border-b-2 border-indigo-400 whitespace-nowrap";
-                    else el.className = "px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap";
-                }
+                if (el) { el.className = t === tab ? "px-4 py-2 font-bold text-indigo-400 border-b-2 border-indigo-400 whitespace-nowrap" : "px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap"; }
             });
-
-            const secNotices = document.getElementById('super-notices-section');
-            const secUsers = document.getElementById('super-users-section');
-            const secHandover = document.getElementById('super-handover-section');
-            const btnNewNotice = document.getElementById('new-notice-btn');
-
-            if(secNotices) secNotices.classList.add('hidden');
-            if(secUsers) secUsers.classList.add('hidden');
-            if(secHandover) secHandover.classList.add('hidden');
-            if(btnNewNotice) btnNewNotice.classList.add('hidden');
-
-            if (tab === 'users') {
-                if(secUsers) secUsers.classList.remove('hidden');
-                window.renderUsersTable();
-            } else if (tab === 'handover') {
-                if(secHandover) secHandover.classList.remove('hidden');
-                window.renderHandoverFeed();
-            } else {
-                if(secNotices) secNotices.classList.remove('hidden');
-                if(btnNewNotice) btnNewNotice.classList.remove('hidden');
-                window.renderSupervisorTable();
-            }
+            const secNotices = document.getElementById('super-notices-section'); const secUsers = document.getElementById('super-users-section'); const secHandover = document.getElementById('super-handover-section'); const btnNewNotice = document.getElementById('new-notice-btn');
+            if(secNotices) secNotices.classList.add('hidden'); if(secUsers) secUsers.classList.add('hidden'); if(secHandover) secHandover.classList.add('hidden'); if(btnNewNotice) btnNewNotice.classList.add('hidden');
+            if (tab === 'users') { if(secUsers) secUsers.classList.remove('hidden'); window.renderUsersTable(); } 
+            else if (tab === 'handover') { if(secHandover) secHandover.classList.remove('hidden'); window.renderHandoverFeed(); } 
+            else { if(secNotices) secNotices.classList.remove('hidden'); if(btnNewNotice) btnNewNotice.classList.remove('hidden'); window.renderSupervisorTable(); }
         };
 
-        // --- 資料渲染邏輯 ---
         window.renderAgentNotices = () => {
-            const container = document.getElementById('notice-grid');
-            if(!container) return;
-            const searchQuery = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase().trim() : "";
-            container.innerHTML = '';
-            
+            const container = document.getElementById('notice-grid'); if(!container) return;
+            const searchQuery = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase().trim() : ""; container.innerHTML = '';
             let filteredNotices = window.noticesData.filter(n => {
                 const isRead = !!n.readLogs?.find(log => log.userId === window.currentUser.id);
                 let matchTab = (window.currentAgentTab === 'active') ? (isNoticePublished(n) && !isRead) : (n.status === 'archived' || isRead);
                 let matchSearch = searchQuery ? (n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery)) : true;
                 return matchTab && matchSearch;
             });
-
-            if (filteredNotices.length === 0) {
-                container.innerHTML = `<div class="col-span-full text-center text-gray-500 mt-10">目前沒有相關公告</div>`; return;
-            }
-
+            if (filteredNotices.length === 0) { container.innerHTML = `<div class="col-span-full text-center text-gray-500 mt-10">目前沒有相關公告</div>`; return; }
             filteredNotices.forEach(notice => {
-                const userReadLog = notice.readLogs?.find(log => log.userId === window.currentUser.id);
-                const isRead = !!userReadLog;
+                const userReadLog = notice.readLogs?.find(log => log.userId === window.currentUser.id); const isRead = !!userReadLog;
                 let imgHtml = notice.photoBase64 ? `<img src="${notice.photoBase64}" onclick="window.viewFullImage(this.src)" class="mt-3 rounded-lg border border-gray-700 cursor-pointer hover:opacity-80 transition max-h-[150px] object-cover shadow-sm">` : '';
-                
                 let buttonHtml = '';
-                if (window.currentAgentTab === 'active') {
-                    buttonHtml = `<button onclick="window.acknowledgeNotice('${notice.id}')" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded font-medium shadow transition-colors">我已閱讀並理解</button>`;
-                } else if (window.currentAgentTab === 'history') {
-                    buttonHtml = isRead 
-                        ? `<button disabled class="mt-4 w-full bg-gray-700 text-green-400 py-2 rounded font-medium cursor-not-allowed border border-gray-600">✅ 已於 ${userReadLog.time} 簽收</button>`
-                        : `<button disabled class="mt-4 w-full bg-gray-700 text-red-400 py-2 rounded font-medium cursor-not-allowed border border-gray-600">公告已下架 (未簽收)</button>`;
-                }
-
+                if (window.currentAgentTab === 'active') { buttonHtml = `<button onclick="window.acknowledgeNotice('${notice.id}')" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded font-medium shadow transition-colors">我已閱讀並理解</button>`; } 
+                else if (window.currentAgentTab === 'history') { buttonHtml = isRead ? `<button disabled class="mt-4 w-full bg-gray-700 text-green-400 py-2 rounded font-medium cursor-not-allowed border border-gray-600">✅ 已於 ${userReadLog.time} 簽收</button>` : `<button disabled class="mt-4 w-full bg-gray-700 text-red-400 py-2 rounded font-medium cursor-not-allowed border border-gray-600">公告已下架 (未簽收)</button>`; }
                 container.innerHTML += `
                     <div class="bg-gray-800 p-6 rounded-xl border-2 ${isRead ? 'border-gray-700' : 'border-indigo-500'} flex flex-col">
-                        <div class="mb-4 flex justify-between"><span class="text-xs font-bold border px-2 py-1 rounded ${notice.typeColor}">${notice.type}</span></div>
+                        <div class="mb-4 flex justify-between"><span class="text-xs font-bold border px-2 py-1 rounded ${notice.typeColor}">${getIconByType(notice.type)} ${notice.type}</span></div>
                         <h3 class="text-xl font-bold text-white mb-2">${notice.title}</h3>
                         <p class="text-gray-300 text-sm whitespace-pre-wrap flex-1 leading-relaxed">${notice.content}</p>
-                        ${imgHtml}
-                        ${buttonHtml}
+                        ${imgHtml}${buttonHtml}
                     </div>`;
             });
         };
 
         window.renderHandoverFeed = () => {
             const drawContainer = (containerId, prefix) => {
-                const container = document.getElementById(containerId);
-                if(!container) return;
-                container.innerHTML = '';
-                
-                if (window.handoversData.length === 0) {
-                    container.innerHTML = `<div class="text-center text-gray-500 mt-10">目前尚無交接事項。</div>`; return;
-                }
-
+                const container = document.getElementById(containerId); if(!container) return; container.innerHTML = '';
+                if (window.handoversData.length === 0) { container.innerHTML = `<div class="text-center text-gray-500 mt-10">目前尚無交接事項。</div>`; return; }
                 window.handoversData.forEach(item => {
-                    const isResolved = item.status === 'resolved';
+                    const isResolved = item.status === 'resolved'; const isFromSuper = item.authorRole === 'supervisor'; 
+                    const isMentionedMe = item.mentions?.includes(window.currentUser?.name) || (item.updates || []).some(up => up.mentions?.includes(window.currentUser?.name));
                     let imgHtml = item.photoBase64 ? `<img src="${item.photoBase64}" onclick="window.viewFullImage(this.src)" class="mt-2 rounded-md border border-gray-700 cursor-pointer hover:opacity-80 max-h-[120px] object-cover shadow-sm">` : '';
                     let updatesHtml = '';
-                    (item.updates || []).forEach(up => { 
-                        updatesHtml += `<div class="mt-3 pl-3 border-l-2 border-indigo-500/50"><span class="text-[10px] text-indigo-300 font-bold">${up.authorName} <span class="font-normal text-gray-500 ml-1">${up.timestamp}</span></span><p class="text-xs text-gray-300 mt-0.5 whitespace-pre-wrap">${up.content}</p></div>`; 
-                    });
-                    
+                    (item.updates || []).forEach(up => { updatesHtml += `<div class="mt-3 pl-3 border-l-2 border-indigo-500/50"><span class="text-[10px] text-indigo-300 font-bold">${up.authorName} <span class="font-normal text-gray-500 ml-1">${up.timestamp}</span></span><p class="text-xs text-gray-300 mt-0.5 whitespace-pre-wrap">${up.content}</p></div>`; });
                     let actionAreaHtml = '';
                     if (!isResolved) {
                         actionAreaHtml = `
-                            <div class="mt-4 flex gap-2">
-                                <input type="text" id="handover-update-input-${prefix}-${item.id}" class="flex-1 bg-gray-900 border border-gray-600 rounded px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="打字並直接按結案，或按補充...">
-                                <button onclick="window.addHandoverUpdate('${item.id}', '${prefix}')" class="bg-gray-700 hover:bg-indigo-600 px-4 py-1.5 rounded text-xs text-white font-medium transition-colors shadow">補充</button>
-                                <button onclick="window.resolveHandover('${item.id}', '${prefix}')" class="bg-green-700 hover:bg-green-600 px-4 py-1.5 rounded text-xs text-white font-medium transition-colors shadow">結案</button>
+                            <div class="mt-4 flex gap-2 items-center">
+                                <div class="relative flex-1">
+                                    <input type="text" id="handover-update-input-${prefix}-${item.id}" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="打字並直接按結案，或按補充 (打 @ 可標記)...">
+                                    <div id="update-mention-list-${prefix}-${item.id}" class="mention-dropdown !text-xs !w-48" style="bottom: 100%; margin-bottom: 4px; top: auto;"></div>
+                                </div>
+                                <button onclick="window.addHandoverUpdate('${item.id}', '${prefix}')" class="bg-gray-700 hover:bg-indigo-600 px-4 py-1.5 rounded text-xs text-white font-medium transition-colors shadow shrink-0">補充</button>
+                                <button onclick="window.resolveHandover('${item.id}', '${prefix}')" class="bg-green-700 hover:bg-green-600 px-4 py-1.5 rounded text-xs text-white font-medium transition-colors shadow shrink-0">結案</button>
                             </div>`;
                     } else {
                         const resolveTimeStr = item.resolvedAt ? `<span class="font-normal text-gray-500 ml-1">(${item.resolvedAt})</span>` : '';
                         actionAreaHtml = `
-                            <div class="mt-4 pt-3 border-t border-gray-700/50 text-right">
+                            <div class="mt-4 pt-3 border-t border-gray-700/50 flex justify-between items-center">
+                                <button onclick="window.reopenHandover('${item.id}', '${prefix}')" class="text-xs text-gray-400 hover:text-white border border-gray-600 hover:border-gray-400 bg-gray-800 px-3 py-1.5 rounded transition-colors shadow">🔄 誤觸重啟</button>
                                 <span class="text-xs text-green-400 font-bold">✅ 已由 ${item.resolvedByName || '未知'}${resolveTimeStr} 結案</span>
                             </div>`;
                     }
-
+                    let borderClass = 'border-gray-700';
+                    if (isFromSuper && !isResolved) borderClass = 'border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.2)]';
+                    if (isMentionedMe && !isResolved) borderClass = 'mention-glow'; 
+                    let superBadge = isFromSuper ? '<span class="ml-2 bg-amber-500 text-gray-950 text-[10px] px-1.5 py-0.5 rounded font-black tracking-wider">👑 主管指派</span>' : '';
+                    let myMentionBadge = (isMentionedMe && !isResolved) ? '<span class="ml-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-black tracking-wider animate-pulse">🎯 指名任務</span>' : '';
                     container.innerHTML += `
-                        <div class="p-4 rounded-lg bg-gray-800 border border-gray-700 shadow mb-4 ${isResolved ? 'opacity-60' : ''}">
-                            <div class="flex justify-between items-center mb-1"><span class="font-bold text-white text-sm">👤 ${item.authorName}</span><span class="text-[10px] text-gray-500">${item.timestamp}</span></div>
+                        <div class="p-4 rounded-lg bg-gray-800 border-2 ${borderClass} shadow mb-4 ${isResolved ? 'opacity-60' : ''}">
+                            <div class="flex justify-between items-center mb-1"><span class="font-bold text-white text-sm">👤 ${item.authorName} ${myMentionBadge}${superBadge}</span><span class="text-[10px] text-gray-500">${item.timestamp}</span></div>
                             <p class="text-gray-200 text-sm whitespace-pre-wrap">${item.content}</p>
-                            ${imgHtml}
-                            ${updatesHtml}
-                            ${actionAreaHtml}
+                            ${imgHtml}${updatesHtml}${actionAreaHtml}
                         </div>`;
                 });
             };
-
-            drawContainer('agent-handover-feed', 'agent');
-            drawContainer('super-handover-feed', 'super');
+            drawContainer('agent-handover-feed', 'agent'); drawContainer('super-handover-feed', 'super');
+            window.handoversData.forEach(item => {
+                if (item.status !== 'resolved') {
+                    window.setupMentionDropdown(`handover-update-input-agent-${item.id}`, `update-mention-list-agent-${item.id}`);
+                    window.setupMentionDropdown(`handover-update-input-super-${item.id}`, `update-mention-list-super-${item.id}`);
+                }
+            });
         };
 
         window.renderTvNotices = () => {
@@ -602,7 +649,7 @@
                 noticeContainer.innerHTML = '';
                 window.noticesData.filter(n => isNoticePublished(n) && n.showOnTv !== false).slice(0, 4).forEach(notice => {
                     let imgIcon = notice.photoBase64 ? `<div class="mt-2 text-[10px] text-indigo-400">🖼️ 附圖片 (請至電腦查看)</div>` : '';
-                    noticeContainer.innerHTML += `<div class="bg-gray-800 p-5 rounded-xl border-l-4 ${notice.typeColor} h-full flex flex-col shadow-lg"><h3 class="font-bold text-white mb-2 truncate text-lg">${notice.title}</h3><p class="text-gray-300 text-sm flex-1 overflow-hidden whitespace-pre-wrap">${notice.content}</p>${imgIcon}</div>`;
+                    noticeContainer.innerHTML += `<div class="bg-gray-800 p-5 rounded-xl border-l-4 ${notice.typeColor} h-full flex flex-col shadow-lg"><h3 class="font-bold text-white mb-2 truncate text-lg">${getIconByType(notice.type)} ${notice.title}</h3><p class="text-gray-300 text-sm flex-1 overflow-hidden whitespace-pre-wrap">${notice.content}</p>${imgIcon}</div>`;
                 });
             }
             const handoverContainer = document.getElementById('tv-handover-feed');
@@ -610,8 +657,11 @@
                 handoverContainer.innerHTML = '';
                 window.handoversData.filter(h => h.status === 'pending').forEach(item => {
                     let imgIcon = item.photoBase64 ? `<span class="text-indigo-400 ml-2" title="附圖">🖼️</span>` : '';
+                    let isFromSuper = item.authorRole === 'supervisor';
+                    let superLabel = isFromSuper ? '<span class="text-amber-400 text-[10px] font-bold ml-2">[主管指派]</span>' : '';
+                    let borderLeftColor = isFromSuper ? 'border-amber-500' : 'border-indigo-500';
                     let latest = (item.updates && item.updates.length > 0) ? `<p class="text-[11px] text-gray-400 border-t border-gray-700 mt-2 pt-2 truncate">↳ ${item.updates[item.updates.length-1].content}</p>` : '';
-                    handoverContainer.innerHTML += `<div class="p-4 rounded-lg border-l-4 border-indigo-500 bg-gray-800 shadow-lg"><span class="font-bold text-white text-sm">${item.authorName}${imgIcon}</span><p class="text-gray-300 text-sm truncate mt-1">${item.content}</p>${latest}</div>`;
+                    handoverContainer.innerHTML += `<div class="p-4 rounded-lg border-l-4 ${borderLeftColor} bg-gray-800 shadow-lg"><span class="font-bold text-white text-sm">${item.authorName}${superLabel}${imgIcon}</span><p class="text-gray-300 text-sm truncate mt-1">${item.content}</p>${latest}</div>`;
                 });
             }
         };
@@ -619,11 +669,7 @@
         window.renderSupervisorTable = () => {
             const tbody = document.getElementById('supervisor-table-body'); if(!tbody) return; tbody.innerHTML = '';
             const agentUsers = window.usersData.filter(u => u.role !== 'supervisor'); const totalAgentsCount = agentUsers.length;
-            
-            if(window.noticesData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center">目前沒有任何公告。</td></tr>`; return;
-            }
-
+            if(window.noticesData.length === 0) { tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center">目前沒有任何公告。</td></tr>`; return; }
             window.noticesData.forEach(notice => {
                 const agentReadCount = (notice.readLogs || []).filter(log => agentUsers.some(u => u.email.toLowerCase() === log.userEmail)).length;
                 let statusBadge = notice.status === 'archived' ? '<span class="bg-gray-700 text-gray-400 px-2 py-1 rounded text-xs border border-gray-600">已封存</span>' : (notice.publishDate && new Date(notice.publishDate) > new Date() ? `<span class="bg-blue-900/40 text-blue-400 px-2 py-1 rounded text-xs border border-blue-800">⏳ 預排中</span>` : '<span class="bg-green-900/50 text-green-400 px-2 py-1 rounded text-xs border border-green-800">✅ 發布中</span>');
@@ -631,12 +677,13 @@
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-750 border-b border-gray-700/50">
                         <td class="px-6 py-4 whitespace-nowrap">${statusBadge}</td>
-                        <td class="px-6 py-4 font-medium text-white">${notice.title} ${tvIcon}<br><span class="text-xs ${notice.typeColor} mt-1 inline-block">${notice.type}</span></td>
+                        <td class="px-6 py-4 font-medium text-white">${notice.title} ${tvIcon}<br><span class="text-xs ${notice.typeColor} mt-1 inline-block">${getIconByType(notice.type)} ${notice.type}</span></td>
                         <td class="px-6 py-4 text-yellow-400 font-bold whitespace-nowrap">${agentReadCount} / ${totalAgentsCount} 人已讀</td>
                         <td class="px-6 py-4 text-right space-x-3 whitespace-nowrap">
                             <button onclick="window.openUnreadModal('${notice.id}')" class="text-indigo-400 font-bold bg-indigo-900/40 px-3 py-1 rounded">追蹤</button>
                             <button onclick="window.openNoticeModal('${notice.id}')" class="text-blue-400">編輯</button>
-                            ${notice.status === 'active' ? `<button onclick="window.archiveNotice('${notice.id}')" class="text-red-400">封存</button>` : `<button onclick="window.activateNotice('${notice.id}')" class="text-green-400">重啟</button>`}
+                            ${notice.status === 'active' ? `<button onclick="window.archiveNotice('${notice.id}')" class="text-yellow-500">封存</button>` : `<button onclick="window.activateNotice('${notice.id}')" class="text-green-400">重啟</button>`}
+                            <button onclick="window.deleteNoticePermanently('${notice.id}', '${notice.title}')" class="text-red-400 font-black hover:text-red-300">🗑️ 永久刪除</button>
                         </td>
                     </tr>`;
             });
@@ -657,109 +704,85 @@
             });
         };
 
-        // --- 視窗控制核心 ---
         window.openNoticeModal = (noticeId = null) => {
             const modal = document.getElementById('notice-modal'); if(!modal) return;
-            document.getElementById('modal-title').innerText = "發布新公告";
-            document.getElementById('modal-title-input').value = ""; document.getElementById('modal-content').value = "";
-            document.getElementById('modal-edit-id').value = ""; document.getElementById('modal-publish').value = "";
-            document.getElementById('modal-expiry').value = ""; document.getElementById('modal-show-on-tv').checked = true;
-            window.clearAttachedImage('notice');
-            if(document.getElementById('force-unread-container')) document.getElementById('force-unread-container').classList.add('hidden');
-
+            document.getElementById('modal-title').innerText = "發布新公告"; document.getElementById('modal-title-input').value = ""; document.getElementById('modal-content').value = ""; document.getElementById('modal-edit-id').value = ""; document.getElementById('modal-publish').value = ""; document.getElementById('modal-expiry').value = ""; document.getElementById('modal-show-on-tv').checked = true; window.clearAttachedImage('notice'); if(document.getElementById('force-unread-container')) document.getElementById('force-unread-container').classList.add('hidden');
             if (noticeId && typeof noticeId === 'string') {
                 const notice = window.noticesData.find(n => n.id === noticeId);
                 if (notice) {
-                    document.getElementById('modal-title').innerText = "編輯公告";
-                    document.getElementById('modal-type').value = notice.type; document.getElementById('modal-publish').value = notice.publishDate || "";
-                    document.getElementById('modal-title-input').value = notice.title; document.getElementById('modal-content').value = notice.content;
-                    document.getElementById('modal-expiry').value = notice.expiryDate || ""; document.getElementById('modal-edit-id').value = notice.id;
-                    document.getElementById('modal-show-on-tv').checked = notice.showOnTv !== false;
+                    document.getElementById('modal-title').innerText = "編輯公告"; document.getElementById('modal-type').value = notice.type; document.getElementById('modal-publish').value = notice.publishDate || ""; document.getElementById('modal-title-input').value = notice.title; document.getElementById('modal-content').value = notice.content; document.getElementById('modal-expiry').value = notice.expiryDate || ""; document.getElementById('modal-edit-id').value = notice.id; document.getElementById('modal-show-on-tv').checked = notice.showOnTv !== false;
                     if(notice.photoBase64) window.showImagePreview('notice', notice.photoBase64);
-                    if(document.getElementById('force-unread-container')) document.getElementById('force-unread-container').classList.remove('hidden');
-                    document.getElementById('modal-force-unread').checked = false;
+                    if(document.getElementById('force-unread-container')) document.getElementById('force-unread-container').classList.remove('hidden'); document.getElementById('modal-force-unread').checked = false;
                 }
             }
-            modal.classList.remove('hidden');
-            setupClipboardPaste('modal-content', 'notice'); // 確保編輯視窗開啟時也啟用監聽
+            modal.classList.remove('hidden'); setupClipboardPaste('modal-content', 'notice');
         };
         window.closeNoticeModal = () => { document.getElementById('notice-modal').classList.add('hidden'); };
-
         window.openUnreadModal = (noticeId) => {
             const notice = window.noticesData.find(n => n.id === noticeId); if(!notice) return;
             document.getElementById('unread-modal-subtitle').innerText = `公告主題：${notice.title}`;
-            const readList = document.getElementById('read-modal-list'); const unreadList = document.getElementById('unread-modal-list');
-            readList.innerHTML = ''; unreadList.innerHTML = ''; let readCount = 0; let unreadCount = 0;
+            const readList = document.getElementById('read-modal-list'); const unreadList = document.getElementById('unread-modal-list'); readList.innerHTML = ''; unreadList.innerHTML = ''; let readCount = 0; let unreadCount = 0;
             const readLogs = notice.readLogs || []; const agentUsers = window.usersData.filter(u => u.role !== 'supervisor');
             agentUsers.forEach(user => {
                 const log = readLogs.find(l => l.userEmail === user.email.toLowerCase() || l.userName === user.name);
                 if (log) { readCount++; readList.innerHTML += `<li class="bg-gray-700/50 px-4 py-2 rounded text-sm text-gray-200 flex justify-between items-center border-l-4 border-green-500"><div>👤 ${user.name}</div><div class="text-[10px] bg-green-900/50 text-green-400 px-2 py-0.5 rounded">${log.time}</div></li>`; } 
                 else { unreadCount++; unreadList.innerHTML += `<li class="bg-gray-900/40 px-4 py-2 rounded text-sm text-red-400 border border-red-900/30">👤 ${user.name}</li>`; }
             });
-            document.getElementById('read-count-num').innerText = readCount; document.getElementById('unread-count-num').innerText = unreadCount; 
-            document.getElementById('unread-modal').classList.remove('hidden');
+            document.getElementById('read-count-num').innerText = readCount; document.getElementById('unread-count-num').innerText = unreadCount; document.getElementById('unread-modal').classList.remove('hidden');
         };
         window.closeUnreadModal = () => { document.getElementById('unread-modal').classList.add('hidden'); };
-
-        window.viewFullImage = (src) => {
-            const modal = document.getElementById('image-viewer-modal'); const fullImg = document.getElementById('full-image-el');
-            if(modal && fullImg) { fullImg.src = src; modal.classList.remove('hidden'); }
-        };
+        window.viewFullImage = (src) => { const modal = document.getElementById('image-viewer-modal'); const fullImg = document.getElementById('full-image-el'); if(modal && fullImg) { fullImg.src = src; modal.classList.remove('hidden'); } };
         window.closeImageViewer = () => { document.getElementById('image-viewer-modal').classList.add('hidden'); };
 
-        // --- 資料與狀態更新邏輯 ---
         window.addHandoverUpdate = async (id, prefix) => {
-            const inputEl = document.getElementById(`handover-update-input-${prefix}-${id}`);
-            if(!inputEl) return; const content = inputEl.value.trim(); if (!content) { window.showToast("請輸入補充內容", "error"); return; }
+            const inputEl = document.getElementById(`handover-update-input-${prefix}-${id}`); if(!inputEl) return; const content = inputEl.value.trim(); if (!content) { window.showToast("請輸入補充內容", "error"); return; }
             const handover = window.handoversData.find(h => h.id === id); if(!handover) return;
-            const newUpdate = { authorName: window.currentUser.name, content, timestamp: new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}), createdAt: Date.now() };
+            const mentions = []; const matches = content.match(/@([^\s@]+)/g); if (matches) { matches.forEach(m => mentions.push(m.substring(1))); }
+            const newUpdate = { authorName: window.currentUser.name, content: content, mentions: mentions, timestamp: new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}), createdAt: Date.now() };
             await updateDoc(doc(db, 'handovers', id), { updates: [...(handover.updates || []), newUpdate] });
             inputEl.value = ''; window.showToast("📝 已補充進度");
         };
 
         window.resolveHandover = async (id, prefix) => { 
-            const inputEl = document.getElementById(`handover-update-input-${prefix}-${id}`);
-            const content = inputEl ? inputEl.value.trim() : "";
+            const inputEl = document.getElementById(`handover-update-input-${prefix}-${id}`); const content = inputEl ? inputEl.value.trim() : "";
             const handover = window.handoversData.find(h => h.id === id); if(!handover) return;
-
-            const timeStr = new Date().toLocaleString('zh-TW', {hour12: false});
-            let newUpdates = [...(handover.updates || [])];
-            if (content) {
-                newUpdates.push({
-                    authorName: window.currentUser.name, content: content, 
-                    timestamp: new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}), createdAt: Date.now() 
-                });
-            }
+            const timeStr = new Date().toLocaleString('zh-TW', {hour12: false}); let newUpdates = [...(handover.updates || [])];
+            if (content) { const mentions = []; const matches = content.match(/@([^\s@]+)/g); if (matches) { matches.forEach(m => mentions.push(m.substring(1))); }
+            newUpdates.push({ authorName: window.currentUser.name, content: content, mentions: mentions, timestamp: new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}), createdAt: Date.now() }); }
             await updateDoc(doc(db, 'handovers', id), { status: 'resolved', resolvedByName: window.currentUser.name, resolvedAt: timeStr, updates: newUpdates }); 
-            if(inputEl) inputEl.value = '';
-            window.showToast("✅ 交接事項已結案！");
+            if(inputEl) inputEl.value = ''; window.showToast("✅ 交接事項已結案！");
         };
 
-        window.submitHandover = async () => {
-            const inputEl = document.getElementById('handover-input'); const content = inputEl.value.trim(); 
-            if (!content && !window.attachedImageBase64.handover) { window.showToast("請填寫交接事項內容或直接 Ctrl+V 貼上圖片！", "error"); return; }
-            await addDoc(collection(db, 'handovers'), { 
-                authorName: window.currentUser.name, content: content, photoBase64: window.attachedImageBase64.handover || null,
-                createdAt: Date.now(), timestamp: new Date().toLocaleString(), status: 'pending', updates: [] 
-            });
-            inputEl.value = ''; window.clearAttachedImage('handover'); window.showToast("✅ 交接發布成功！");
+        window.reopenHandover = async (id, prefix) => {
+            const handover = window.handoversData.find(h => h.id === id); if(!handover) return;
+            let newUpdates = [...(handover.updates || [])];
+            newUpdates.push({authorName: window.currentUser.name, content: `🔄 [系統紀錄]：重新啟用了此交接事項。`, mentions: [], timestamp: new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}), createdAt: Date.now() });
+            await updateDoc(doc(db, 'handovers', id), { status: 'pending', resolvedByName: null, resolvedAt: null, updates: newUpdates });
+            window.showToast("🔄 交接事項已重啟！");
+        };
+
+        window.deleteNoticePermanently = async (id, title) => {
+            if (confirm(`⚠️ 警告！您確定要【永久刪除】公告「${title}」嗎？\n此動作將直接從雲端資料庫徹底抹除資料與圖片，封存與歷史紀錄都將全面消失，此操作無法復原！`)) {
+                await deleteDoc(doc(db, 'notices', id));
+                window.showToast("🗑️ 公告已從雲端永久抹除！");
+            }
+        };
+
+        window.submitHandover = async (textareaId, imageType) => {
+            const inputEl = document.getElementById(textareaId); const content = inputEl.value.trim(); 
+            if (!content && !window.attachedImageBase64[imageType]) { window.showToast("請填寫交接內容或直接 Ctrl+V 貼上圖片！", "error"); return; }
+            const mentions = []; const matches = content.match(/@([^\s@]+)/g); if (matches) { matches.forEach(m => mentions.push(m.substring(1))); }
+            await addDoc(collection(db, 'handovers'), { authorName: window.currentUser.name, authorRole: window.currentUser.role, content: content, mentions: mentions, photoBase64: window.attachedImageBase64[imageType] || null, createdAt: Date.now(), timestamp: new Date().toLocaleString(), status: 'pending', updates: [] });
+            inputEl.value = ''; window.clearAttachedImage(imageType); window.showToast("✅ 交接發布成功！");
         };
 
         window.saveNotice = async () => {
-            const titleInput = document.getElementById('modal-title-input').value.trim();
-            const contentInput = document.getElementById('modal-content').value.trim();
+            const titleInput = document.getElementById('modal-title-input').value.trim(); const contentInput = document.getElementById('modal-content').value.trim();
             if (!titleInput) { window.showToast("請填寫公告標題！", "error"); return; }
-
-            const noticeData = {
-                type: document.getElementById('modal-type').value, typeColor: getColorByType(document.getElementById('modal-type').value), publishDate: document.getElementById('modal-publish').value,
-                title: titleInput, content: contentInput, photoBase64: window.attachedImageBase64.notice || null,
-                expiryDate: document.getElementById('modal-expiry').value, showOnTv: document.getElementById('modal-show-on-tv').checked, status: 'active', readLogs: [], createdAt: Date.now()
-            };
+            const noticeData = {type: document.getElementById('modal-type').value, typeColor: getColorByType(document.getElementById('modal-type').value), publishDate: document.getElementById('modal-publish').value, title: titleInput, content: contentInput, photoBase64: window.attachedImageBase64.notice || null, expiryDate: document.getElementById('modal-expiry').value, showOnTv: document.getElementById('modal-show-on-tv').checked, status: 'active', readLogs: [], createdAt: Date.now()};
             const editId = document.getElementById('modal-edit-id').value;
-            if (editId) {
-                if (document.getElementById('modal-force-unread').checked) noticeData.readLogs = [];
-                await updateDoc(doc(db, 'notices', editId), noticeData);
-            } else { await addDoc(collection(db, 'notices'), noticeData); }
+            if (editId) { if (document.getElementById('modal-force-unread').checked) noticeData.readLogs = []; await updateDoc(doc(db, 'notices', editId), noticeData); } 
+            else { await addDoc(collection(db, 'notices'), noticeData); }
             window.closeNoticeModal(); window.clearAttachedImage('notice'); window.showToast("📢 公告儲存成功！");
         };
 
@@ -768,50 +791,31 @@
             if (!name || !email || !pass || pass.length < 6) return window.showToast("資料不完整或密碼少於 6 碼！", "error");
             const q = query(collection(db, "users"), where("email", "==", email)); const snapshot = await getDocs(q);
             if (!snapshot.empty) return window.showToast("此 Email 已經登記！", "error");
-            
-            const btn = document.getElementById('create-user-btn'); if(btn) btn.disabled = true;
-            let shouldAdd = false;
-            try { await createUserWithEmailAndPassword(secondaryAuth, email, pass); await secondaryAuth.signOut(); shouldAdd = true; } 
-            catch (e) { if (e.code === 'auth/email-already-in-use') shouldAdd = true; else window.showToast("❌ 建立失敗: " + e.message, "error"); }
-            if (shouldAdd) { 
-                await addDoc(collection(db, 'users'), { name, email, role, createdAt: new Date().toLocaleDateString() }); 
-                document.getElementById('new-user-name').value = ''; document.getElementById('new-user-email').value = ''; document.getElementById('new-user-password').value = ''; 
-                window.showToast(`✅ 帳號開通成功：${name}`);
-            }
+            const btn = document.getElementById('create-user-btn'); if(btn) btn.disabled = true; let shouldAdd = false;
+            try { await createUserWithEmailAndPassword(secondaryAuth, email, pass); await secondaryAuth.signOut(); shouldAdd = true; } catch (e) { if (e.code === 'auth/email-already-in-use') shouldAdd = true; else window.showToast("❌ 建立失敗: " + e.message, "error"); }
+            if (shouldAdd) { await addDoc(collection(db, 'users'), { name, email, role, createdAt: new Date().toLocaleDateString() }); document.getElementById('new-user-name').value = ''; document.getElementById('new-user-email').value = ''; document.getElementById('new-user-password').value = ''; window.showToast(`✅ 帳號開通成功：${name}`); }
             if(btn) btn.disabled = false;
         };
 
         window.deleteUser = async (docId, userName) => { if (confirm(`⚠️ 確定要移除「${userName}」的登入權限嗎？`)) { await deleteDoc(doc(db, 'users', docId)); window.showToast("🗑️ 帳號已移除"); } };
         window.archiveNotice = async (id) => { await updateDoc(doc(db, 'notices', id), { status: 'archived', expiryDate: "" }); window.showToast("📦 公告已封存"); };
         window.activateNotice = async (id) => { await updateDoc(doc(db, 'notices', id), { status: 'active' }); window.showToast("🔄 公告已重啟"); };
-        window.acknowledgeNotice = async (id) => { 
-            const n = window.noticesData.find(x => x.id === id); if(!n) return;
-            const timeStr = `${new Date().getFullYear()}/${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')} ${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`;
-            const log = { userId: window.currentUser.id, userEmail: window.currentUser.email.toLowerCase(), time: timeStr, userName: window.currentUser.name };
-            await updateDoc(doc(db, 'notices', id), { readLogs: [...(n.readLogs || []), log] });
-            window.showToast("✅ 已簽收公告");
-        };
+        window.acknowledgeNotice = async (id) => { const n = window.noticesData.find(x => x.id === id); if(!n) return; const timeStr = `${new Date().getFullYear()}/${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')} ${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`; const log = { userId: window.currentUser.id, userEmail: window.currentUser.email.toLowerCase(), time: timeStr, userName: window.currentUser.name }; await updateDoc(doc(db, 'notices', id), { readLogs: [...(n.readLogs || []), log] }); window.showToast("✅ 已簽收公告"); window.stopTabFlashing('notice'); };
 
-        // --- 登入控制與 Firebase 監聽 ---
+        window.confirmLoginMention = () => { document.getElementById('login-mention-modal').classList.add('hidden'); document.getElementById('login-mention-modal').classList.remove('flex'); window.switchAgentTab('handover'); };
+
         onAuthStateChanged(auth, async (user) => {
             if (window.currentView === 'tv' && window.currentUser?.role === 'tv') return; 
             if (user) {
                 let role = 'agent'; let name = user.email.split('@')[0];
                 if (user.email === 'manager@yourcompany.com') { role = 'supervisor'; name = '管理員'; } 
                 else {
-                    const q = query(collection(db, "users"), where("email", "==", user.email.toLowerCase()));
-                    const snapshot = await getDocs(q);
-                    if (snapshot.empty) {
-                        await signOut(auth);
-                        window.showToast("❌ 您的帳號已被停用或移除", "error");
-                        window.currentUser = null; window.showLoginView(); return;
-                    }
-                    const userData = snapshot.docs[0].data();
-                    name = userData.name; role = userData.role || 'agent';
+                    const q = query(collection(db, "users"), where("email", "==", user.email.toLowerCase())); const snapshot = await getDocs(q);
+                    if (snapshot.empty) { await signOut(auth); window.showToast("❌ 您的帳號已被停用或移除", "error"); window.currentUser = null; window.showLoginView(); return; }
+                    const userData = snapshot.docs[0].data(); name = userData.name; role = userData.role || 'agent';
                 }
-                window.currentUser = { id: user.uid, email: user.email, name: name, role: role };
-                window.currentView = role === 'supervisor' ? 'supervisor' : 'agent';
-                window.showAppLayout();
+                window.currentUser = { id: user.uid, email: user.email, name: name, role: role };window.currentView = role === 'supervisor' ? 'supervisor' : 'agent';window.showAppLayout();
+                setTimeout(() => {if (window.handoversData && window.currentUser && window.currentUser.role !== 'supervisor') {const myMentions = window.handoversData.filter(h => h.status === 'pending' && h.mentions?.includes(window.currentUser.name));if (myMentions.length > 0) {document.getElementById('login-mention-text').innerText = `報告 ${window.currentUser.name}，目前有 ${myMentions.length} 筆指名您的待辦任務尚未處理！`;document.getElementById('login-mention-modal').classList.remove('hidden'); document.getElementById('login-mention-modal').classList.add('flex');}}}, 1500);
             } else if (window.currentUser?.role !== 'tv') { window.currentUser = null; window.showLoginView(); }
         });
 
@@ -821,61 +825,38 @@
             try { await signInWithEmailAndPassword(auth, email, pass); } catch (e) { window.showToast("❌ 登入失敗：帳號或密碼錯誤！", "error"); }
         };
 
-        window.devTvLogin = () => { 
-            localStorage.setItem('shiftSystemTvMode', 'true'); 
-            window.currentUser = { id: 'tv-001', name: "辦公室電視看板", role: "tv" }; window.currentView = 'tv';
-            window.showAppLayout(); if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(e=>console.log(e)); 
-        };
-
+        window.devTvLogin = () => { localStorage.setItem('shiftSystemTvMode', 'true'); window.currentUser = { id: 'tv-001', name: "辦公室電視看板", role: "tv" }; window.currentView = 'tv'; window.showAppLayout(); if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(e=>console.log(e)); };
         window.logout = async () => { localStorage.removeItem('shiftSystemTvMode'); if (document.fullscreenElement) document.exitFullscreen().catch(e=>console.log(e)); await signOut(auth); };
-
-        window.exitTvMode = async () => { 
-            localStorage.removeItem('shiftSystemTvMode'); 
-            if (document.fullscreenElement) await document.exitFullscreen().catch(e=>console.log(e)); 
-            if (window.currentUser && window.currentUser.role === 'tv') {
-                await signOut(auth); window.location.reload(); 
-            } else {
-                window.currentView = window.currentUser?.role || 'login'; window.renderCurrentView(); 
-            }
-        };
-
+        window.exitTvMode = async () => { localStorage.removeItem('shiftSystemTvMode'); if (document.fullscreenElement) await document.exitFullscreen().catch(e=>console.log(e)); if (window.currentUser && window.currentUser.role === 'tv') { await signOut(auth); window.location.reload(); } else { window.currentView = window.currentUser?.role || 'login'; window.renderCurrentView(); } };
         window.resetPassword = async () => { const email = document.getElementById('login-account').value.trim(); if (!email) return window.showToast("請先在上方輸入您的信箱", "error"); await sendPasswordResetEmail(auth, email); window.showToast("✅ 密碼重設信已寄出"); };
         window.changePassword = async () => { const pass = prompt("請輸入新密碼 (至少6碼)"); if (pass && pass.length >= 6) { try { await updatePassword(auth.currentUser, pass); window.showToast("✅ 密碼修改成功"); } catch(e) { window.showToast("安全驗證逾時，請重新登入", "error"); window.logout(); } } };
         window.toggleView = () => { window.currentView = window.currentView === 'agent' ? 'supervisor' : 'agent'; window.renderCurrentView(); };
 
-        // ─── 系統時鐘與資料監聽 ───
         window.updateClock = () => {
-            const now = new Date(); const timeStr = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
-            const days = ['日','一','二','三','四','五','六']; const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} 星期${days[now.getDay()]}`;
-            if(document.getElementById('live-time')) document.getElementById('live-time').innerText = timeStr;
-            if(document.getElementById('live-date')) document.getElementById('live-date').innerText = dateStr;
-            if(document.getElementById('tv-live-time')) document.getElementById('tv-live-time').innerText = timeStr;
-            if(document.getElementById('tv-live-date')) document.getElementById('tv-live-date').innerText = dateStr;
-            
-            if (now.getSeconds() % 10 === 0 && window.noticesData) {
-                window.noticesData.forEach(n => { if (n.status === 'active' && n.expiryDate && now > new Date(n.expiryDate)) { updateDoc(doc(db, 'notices', n.id), { status: 'archived' }); } });
-            }
+            const now = new Date(); const timeStr = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':'); const days = ['日','一','二','三','四','五','六']; const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} 星期${days[now.getDay()]}`; if(document.getElementById('live-time')) document.getElementById('live-time').innerText = timeStr; if(document.getElementById('live-date')) document.getElementById('live-date').innerText = dateStr; if(document.getElementById('tv-live-time')) document.getElementById('tv-live-time').innerText = timeStr; if(document.getElementById('tv-live-date')) document.getElementById('tv-live-date').innerText = dateStr;
+            if (now.getSeconds() % 10 === 0 && window.noticesData) { window.noticesData.forEach(n => { if (n.status === 'active' && n.expiryDate && now > new Date(n.expiryDate)) { updateDoc(doc(db, 'notices', n.id), { status: 'archived' }); } }); }
             if (now.getSeconds() === 0 && window.currentUser) { window.renderCurrentView(); }
         };
 
-        onSnapshot(collection(db, "notices"), (snapshot) => {
-            window.noticesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.createdAt - a.createdAt);
+        const noticesQuery = query(collection(db, "notices"), orderBy("createdAt", "desc"), limit(100));
+        onSnapshot(noticesQuery, (snapshot) => {
+            const freshNotices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.createdAt - a.createdAt);
+            if (!isFirstNoticesLoad && freshNotices.length > window.noticesData.length) { window.playNoticeAlert(); window.startTabFlashing('notice'); }
+            isFirstNoticesLoad = false; window.noticesData = freshNotices;
+            const container = document.getElementById('marquee-container'); const marquee = document.getElementById('global-marquee'); if(container && marquee) { const urgentNotices = window.noticesData.filter(n => n.status === 'active' && n.type === '緊急通知'); if (urgentNotices.length > 0 && window.currentView !== 'tv') { marquee.innerText = urgentNotices.map(n => `【${n.title}】 ${n.content}`).join('      🚨      '); container.classList.remove('hidden'); } else { container.classList.add('hidden'); } }
             if(window.currentUser) window.renderCurrentView();
         });
 
-        onSnapshot(collection(db, "handovers"), (snapshot) => {
-            window.handoversData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.createdAt - a.createdAt);
+        const handoversQuery = query(collection(db, "handovers"), orderBy("createdAt", "desc"), limit(50));
+        onSnapshot(handoversQuery, (snapshot) => {
+            const freshHandovers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => { if (a.status === 'pending' && b.status !== 'pending') return -1; if (a.status !== 'pending' && b.status === 'pending') return 1; return b.createdAt - a.createdAt; });
+            if (!isFirstHandoversLoad) { let isMentionedMe = false; let hasNewNormalMsg = false; freshHandovers.forEach(freshItem => { const oldItem = window.handoversData.find(h => h.id === freshItem.id); if (!oldItem) { if (freshItem.authorName !== window.currentUser?.name) { if (freshItem.mentions?.includes(window.currentUser?.name)) isMentionedMe = true; else hasNewNormalMsg = true; } } else if ((freshItem.updates?.length || 0) > (oldItem.updates?.length || 0)) { const newUpdates = freshItem.updates.slice(oldItem.updates?.length || 0); newUpdates.forEach(up => { if (up.authorName !== window.currentUser?.name) { if (up.mentions?.includes(window.currentUser?.name)) isMentionedMe = true; else hasNewNormalMsg = true; } }); } }); if (isMentionedMe) { window.playMentionAlarm(); window.startTabFlashing('mention'); } else if (hasNewNormalMsg) { window.playHandoverAlert(); window.startTabFlashing('handover'); } }
+            isFirstHandoversLoad = false; window.handoversData = freshHandovers;
             if(window.currentUser) { if (window.currentView === 'tv') window.renderTvNotices(); else window.renderHandoverFeed(); }
         });
 
-        onSnapshot(collection(db, "users"), (snapshot) => {
-            window.usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            if(window.currentUser && window.currentView === 'supervisor') { window.renderSupervisorTable(); window.renderUsersTable(); }
-        });
-
-        if (localStorage.getItem('shiftSystemTvMode') === 'true') {
-            window.currentUser = { id: 'tv-001', name: "辦公室電視看板", role: "tv" }; window.currentView = 'tv'; setTimeout(() => window.showAppLayout(), 100); 
-        }
+        onSnapshot(collection(db, "users"), (snapshot) => { window.usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); if(window.currentUser && window.currentView === 'supervisor') { window.renderSupervisorTable(); window.renderUsersTable(); } });
+        if (localStorage.getItem('shiftSystemTvMode') === 'true') { window.currentUser = { id: 'tv-001', name: "辦公室電視看板", role: "tv" }; window.currentView = 'tv'; setTimeout(() => window.showAppLayout(), 100); }
         setInterval(window.updateClock, 1000); window.updateClock();
     </script>
 </body>
