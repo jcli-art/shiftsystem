@@ -113,8 +113,21 @@
                         <button onclick="window.switchAgentTab('history')" id="tab-history" class="px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">歷史紀錄</button>
                         <button onclick="window.switchAgentTab('handover')" id="tab-handover" class="px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">交接專區</button>
                     </div>
-                    <div id="search-container" class="relative w-full sm:w-64 shrink-0">
-                        <input type="text" id="search-input" oninput="window.renderAgentNotices()" placeholder="搜尋標題或內容..." class="w-full bg-gray-800 border border-gray-600 rounded-full py-2 px-4 text-sm text-white outline-none focus:border-indigo-500 shadow-inner">
+                    <div id="search-container" class="relative w-full sm:w-auto shrink-0 flex gap-2">
+                        <select id="agent-category-filter" onchange="window.renderAgentNotices()" class="bg-gray-800 border border-gray-600 rounded-lg py-2 px-3 text-sm text-white outline-none focus:border-indigo-500 shadow-inner">
+                            <option value="all">全部分類</option>
+                            <option value="行政公告">📋 行政公告</option>
+                            <option value="提醒事項">💡 提醒事項</option>
+                            <option value="緊急公告">🚨 緊急公告</option>
+                            <option value="排班公告">🗓️ 排班公告</option>
+                            <option value="場站/設備維護">🚧 場站/設備維護</option>
+                            <option value="機接相關">✈️ 機接相關</option>
+                            <option value="調價公告">💰 調價公告</option>
+                            <option value="行銷/活動公告">📣 行銷/活動公告</option>
+                            <option value="話術變更">🗣️ 話術變更</option>
+                            <option value="系統/APP異常">🐛 系統/APP異常</option>
+                        </select>
+                        <input type="text" id="search-input" oninput="window.renderAgentNotices()" placeholder="搜尋關鍵字..." class="w-full sm:w-48 bg-gray-800 border border-gray-600 rounded-lg py-2 px-4 text-sm text-white outline-none focus:border-indigo-500 shadow-inner">
                     </div>
                 </div>
                 <div id="notice-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-6 overflow-y-auto pb-6 pr-2"></div>
@@ -152,15 +165,18 @@
                         <button id="super-tab-users" onclick="window.switchSupervisorTab('users')" class="px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">👥 帳號管理</button>
                         <button id="super-tab-handover" onclick="window.switchSupervisorTab('handover')" class="px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">🤝 交接專區</button>
                     </div>
-                    <button id="new-notice-btn" onclick="window.openNoticeModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium shadow shrink-0">
-                        ➕ 發布新公告
-                    </button>
+                    <div id="super-actions-container" class="flex gap-3 items-center w-full sm:w-auto">
+                        <input type="text" id="super-search-input" oninput="window.renderSupervisorTable()" placeholder="搜尋公告標題/內容..." class="w-full sm:w-48 bg-gray-800 border border-gray-600 rounded-lg py-1.5 px-4 text-sm text-white outline-none focus:border-indigo-500 shadow-inner transition-colors">
+                        <button id="new-notice-btn" onclick="window.openNoticeModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg font-medium shadow shrink-0">
+                            ➕ 發布新公告
+                        </button>
+                    </div>
                 </div>
                 
                 <div id="super-notices-section" class="bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto shrink-0 shadow-lg">
                     <table class="w-full text-left text-sm min-w-[600px]">
                         <thead class="bg-gray-700 text-gray-300">
-                            <tr><th class="px-6 py-4 whitespace-nowrap">狀態</th><th class="px-6 py-4">主題</th><th class="px-6 py-4 whitespace-nowrap">進度 (僅計算客服)</th><th class="px-6 py-4 text-right whitespace-nowrap">操作</th></tr>
+                            <tr><th class="px-6 py-4 whitespace-nowrap">狀態</th><th class="px-6 py-4">公告主題</th><th class="px-6 py-4 whitespace-nowrap">進度 (僅計算客服)</th><th class="px-6 py-4 text-right whitespace-nowrap">操作管理</th></tr>
                         </thead>
                         <tbody id="supervisor-table-body" class="divide-y divide-gray-700"></tbody>
                     </table>
@@ -236,15 +252,16 @@
             <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <select id="modal-type" class="bg-gray-900 border border-gray-700 rounded p-2 text-white outline-none focus:border-indigo-500">
-                        <option value="系統 Bug">🐛 系統 Bug</option>
-                        <option value="話術變更">🗣️ 話術變更</option>
-                        <option value="行政通知">📋 行政通知</option>
-                        <option value="緊急通知">🚨 緊急通知</option>
+                        <option value="行政公告">📋 行政公告</option>
+                        <option value="提醒事項">💡 提醒事項</option>
+                        <option value="緊急公告">🚨 緊急公告</option>
                         <option value="排班公告">🗓️ 排班公告</option>
+                        <option value="場站/設備維護">🚧 場站/設備維護</option>
+                        <option value="機接相關">✈️ 機接相關</option>
                         <option value="調價公告">💰 調價公告</option>
-                        <option value="行銷公告">📣 行銷公告</option>
-                        <option value="開場公告">✨ 開場公告</option>
-                        <option value="撤場公告">🛑 撤場公告</option>
+                        <option value="行銷/活動公告">📣 行銷/活動公告</option>
+                        <option value="話術變更">🗣️ 話術變更</option>
+                        <option value="系統/APP異常">🐛 系統/APP異常</option>
                     </select>
                     <input type="datetime-local" id="modal-publish" class="bg-gray-900 border border-gray-700 rounded p-2 text-white outline-none focus:border-indigo-500" title="預排上架時間">
                 </div>
@@ -432,30 +449,32 @@
         
         function getColorByType(type) { 
             switch(type){ 
-                case "系統 Bug": return "text-red-400 border-red-400"; 
-                case "話術變更": return "text-yellow-400 border-yellow-400"; 
-                case "行政通知": return "text-blue-400 border-blue-400"; 
-                case "緊急通知": return "text-purple-400 border-purple-400"; 
+                case "行政公告": return "text-blue-400 border-blue-400"; 
+                case "提醒事項": return "text-yellow-400 border-yellow-400"; 
+                case "緊急公告": return "text-purple-400 border-purple-400"; 
                 case "排班公告": return "text-sky-400 border-sky-400"; 
+                case "場站/設備維護": return "text-emerald-400 border-emerald-400"; 
+                case "機接相關": return "text-teal-400 border-teal-400"; 
                 case "調價公告": return "text-amber-400 border-amber-400"; 
-                case "行銷公告": return "text-pink-400 border-pink-400"; 
-                case "開場公告": return "text-emerald-400 border-emerald-400"; 
-                case "撤場公告": return "text-gray-400 border-gray-400"; 
+                case "行銷/活動公告": return "text-pink-400 border-pink-400"; 
+                case "話術變更": return "text-orange-400 border-orange-400"; 
+                case "系統/APP異常": return "text-red-400 border-red-400"; 
                 default: return "text-gray-400 border-gray-400"; 
             } 
         }
 
         function getIconByType(type) {
             switch(type){
-                case "系統 Bug": return "🐛";
-                case "話術變更": return "🗣️";
-                case "行政通知": return "📋";
-                case "緊急通知": return "🚨";
+                case "行政公告": return "📋";
+                case "提醒事項": return "💡";
+                case "緊急公告": return "🚨";
                 case "排班公告": return "🗓️";
+                case "場站/設備維護": return "🚧";
+                case "機接相關": return "✈️";
                 case "調價公告": return "💰";
-                case "行銷公告": return "📣";
-                case "開場公告": return "✨";
-                case "撤場公告": return "🛑";
+                case "行銷/活動公告": return "📣";
+                case "話術變更": return "🗣️";
+                case "系統/APP異常": return "🐛";
                 default: return "📌";
             }
         }
@@ -562,22 +581,38 @@
                 const el = document.getElementById(`super-tab-${t}`);
                 if (el) { el.className = t === tab ? "px-4 py-2 font-bold text-indigo-400 border-b-2 border-indigo-400 whitespace-nowrap" : "px-4 py-2 font-bold text-gray-500 hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap"; }
             });
-            const secNotices = document.getElementById('super-notices-section'); const secUsers = document.getElementById('super-users-section'); const secHandover = document.getElementById('super-handover-section'); const btnNewNotice = document.getElementById('new-notice-btn');
-            if(secNotices) secNotices.classList.add('hidden'); if(secUsers) secUsers.classList.add('hidden'); if(secHandover) secHandover.classList.add('hidden'); if(btnNewNotice) btnNewNotice.classList.add('hidden');
+            const secNotices = document.getElementById('super-notices-section'); const secUsers = document.getElementById('super-users-section'); const secHandover = document.getElementById('super-handover-section'); const btnNewNotice = document.getElementById('new-notice-btn'); const searchActions = document.getElementById('super-actions-container');
+            if(secNotices) secNotices.classList.add('hidden'); if(secUsers) secUsers.classList.add('hidden'); if(secHandover) secHandover.classList.add('hidden'); if(searchActions) searchActions.classList.add('hidden');
             if (tab === 'users') { if(secUsers) secUsers.classList.remove('hidden'); window.renderUsersTable(); } 
             else if (tab === 'handover') { if(secHandover) secHandover.classList.remove('hidden'); window.renderHandoverFeed(); } 
-            else { if(secNotices) secNotices.classList.remove('hidden'); if(btnNewNotice) btnNewNotice.classList.remove('hidden'); window.renderSupervisorTable(); }
+            else { if(secNotices) secNotices.classList.remove('hidden'); if(searchActions) searchActions.classList.remove('hidden'); if(searchActions) searchActions.classList.add('flex'); window.renderSupervisorTable(); }
         };
 
+        window.toggleNoticePreview = (id) => {
+            const row = document.getElementById(`preview-row-${id}`);
+            if (row) {
+                if (row.classList.contains('hidden')) { row.classList.remove('hidden'); } 
+                else { row.classList.add('hidden'); }
+            }
+        };
+
+        // 🟢 加入雙重過濾：關鍵字與分類下拉選單
         window.renderAgentNotices = () => {
             const container = document.getElementById('notice-grid'); if(!container) return;
-            const searchQuery = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase().trim() : ""; container.innerHTML = '';
+            const searchQuery = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase().trim() : "";
+            const categoryFilter = document.getElementById('agent-category-filter') ? document.getElementById('agent-category-filter').value : "all";
+            
+            container.innerHTML = '';
+            
             let filteredNotices = window.noticesData.filter(n => {
                 const isRead = !!n.readLogs?.find(log => log.userId === window.currentUser.id);
                 let matchTab = (window.currentAgentTab === 'active') ? (isNoticePublished(n) && !isRead) : (n.status === 'archived' || isRead);
                 let matchSearch = searchQuery ? (n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery)) : true;
-                return matchTab && matchSearch;
+                let matchCat = (categoryFilter === 'all') ? true : (n.type === categoryFilter);
+                
+                return matchTab && matchSearch && matchCat;
             });
+            
             if (filteredNotices.length === 0) { container.innerHTML = `<div class="col-span-full text-center text-gray-500 mt-10">目前沒有相關公告</div>`; return; }
             filteredNotices.forEach(notice => {
                 const userReadLog = notice.readLogs?.find(log => log.userId === window.currentUser.id); const isRead = !!userReadLog;
@@ -587,7 +622,10 @@
                 else if (window.currentAgentTab === 'history') { buttonHtml = isRead ? `<button disabled class="mt-4 w-full bg-gray-700 text-green-400 py-2 rounded font-medium cursor-not-allowed border border-gray-600">✅ 已於 ${userReadLog.time} 簽收</button>` : `<button disabled class="mt-4 w-full bg-gray-700 text-red-400 py-2 rounded font-medium cursor-not-allowed border border-gray-600">公告已下架 (未簽收)</button>`; }
                 container.innerHTML += `
                     <div class="bg-gray-800 p-6 rounded-xl border-2 ${isRead ? 'border-gray-700' : 'border-indigo-500'} flex flex-col">
-                        <div class="mb-4 flex justify-between"><span class="text-xs font-bold border px-2 py-1 rounded ${notice.typeColor}">${getIconByType(notice.type)} ${notice.type}</span></div>
+                        <div class="mb-4 flex justify-between items-center">
+                            <span class="text-xs font-bold border px-2 py-1 rounded ${notice.typeColor}">${getIconByType(notice.type)} ${notice.type}</span>
+                            <span class="text-[10px] bg-gray-700 text-gray-400 px-2 py-1 rounded">✍️ ${notice.authorName || '管理員'}</span>
+                        </div>
                         <h3 class="text-xl font-bold text-white mb-2">${notice.title}</h3>
                         <p class="text-gray-300 text-sm whitespace-pre-wrap flex-1 leading-relaxed">${notice.content}</p>
                         ${imgHtml}${buttonHtml}
@@ -669,24 +707,51 @@
             }
         };
 
+        // 🟢 主管表格優化：拿掉摘要、加入關鍵字篩選過濾
         window.renderSupervisorTable = () => {
             const tbody = document.getElementById('supervisor-table-body'); if(!tbody) return; tbody.innerHTML = '';
             const agentUsers = window.usersData.filter(u => u.role !== 'supervisor'); const totalAgentsCount = agentUsers.length;
-            if(window.noticesData.length === 0) { tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center">目前沒有任何公告。</td></tr>`; return; }
-            window.noticesData.forEach(notice => {
+            
+            const searchQuery = document.getElementById('super-search-input') ? document.getElementById('super-search-input').value.toLowerCase().trim() : "";
+            
+            const filteredNotices = window.noticesData.filter(n => {
+                return searchQuery ? (n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery) || (n.authorName && n.authorName.toLowerCase().includes(searchQuery))) : true;
+            });
+            
+            if(filteredNotices.length === 0) { tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">目前沒有相符的公告。</td></tr>`; return; }
+            
+            filteredNotices.forEach(notice => {
                 const agentReadCount = (notice.readLogs || []).filter(log => agentUsers.some(u => u.email.toLowerCase() === log.userEmail)).length;
                 let statusBadge = notice.status === 'archived' ? '<span class="bg-gray-700 text-gray-400 px-2 py-1 rounded text-xs border border-gray-600">已封存</span>' : (notice.publishDate && new Date(notice.publishDate) > new Date() ? `<span class="bg-blue-900/40 text-blue-400 px-2 py-1 rounded text-xs border border-blue-800">⏳ 預排中</span>` : '<span class="bg-green-900/50 text-green-400 px-2 py-1 rounded text-xs border border-green-800">✅ 發布中</span>');
                 const tvIcon = notice.showOnTv === false ? '<span class="text-gray-500 ml-2 text-xs" title="未上看板">📺🚫</span>' : '';
+                
+                const authorTag = `<span class="ml-2 text-[10px] bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded border border-gray-600">✍️ ${notice.authorName || '管理員'}</span>`;
+                const fullImg = notice.photoBase64 ? `<img src="${notice.photoBase64}" class="mt-3 max-h-[200px] rounded border border-gray-700 cursor-pointer hover:opacity-80" onclick="window.viewFullImage(this.src)">` : '';
+
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-750 border-b border-gray-700/50">
                         <td class="px-6 py-4 whitespace-nowrap">${statusBadge}</td>
-                        <td class="px-6 py-4 font-medium text-white">${notice.title} ${tvIcon}<br><span class="text-xs ${notice.typeColor} mt-1 inline-block">${getIconByType(notice.type)} ${notice.type}</span></td>
+                        <td class="px-6 py-4 font-medium text-white max-w-xs xl:max-w-md">
+                            <div class="flex items-center flex-wrap gap-1 mb-1">
+                                <span>${notice.title}</span> ${tvIcon} ${authorTag}
+                            </div>
+                            <span class="text-[10px] ${notice.typeColor} inline-block">${getIconByType(notice.type)} ${notice.type}</span>
+                        </td>
                         <td class="px-6 py-4 text-yellow-400 font-bold whitespace-nowrap">${agentReadCount} / ${totalAgentsCount} 人已讀</td>
-                        <td class="px-6 py-4 text-right space-x-3 whitespace-nowrap">
+                        <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                            <button onclick="window.toggleNoticePreview('${notice.id}')" class="text-gray-300 font-bold hover:text-white border border-gray-500 hover:border-gray-300 bg-gray-800 px-3 py-1 rounded shadow-sm transition-colors">👁️ 預覽</button>
                             <button onclick="window.openUnreadModal('${notice.id}')" class="text-indigo-400 font-bold bg-indigo-900/40 px-3 py-1 rounded">追蹤</button>
-                            <button onclick="window.openNoticeModal('${notice.id}')" class="text-blue-400">編輯</button>
-                            ${notice.status === 'active' ? `<button onclick="window.archiveNotice('${notice.id}')" class="text-yellow-500">封存</button>` : `<button onclick="window.activateNotice('${notice.id}')" class="text-green-400">重啟</button>`}
-                            <button onclick="window.deleteNoticePermanently('${notice.id}', '${notice.title}')" class="text-red-400 font-black hover:text-red-300">🗑️ 永久刪除</button>
+                            <button onclick="window.openNoticeModal('${notice.id}')" class="text-blue-400 font-medium px-2 py-1">編輯</button>
+                            ${notice.status === 'active' ? `<button onclick="window.archiveNotice('${notice.id}')" class="text-yellow-500 font-medium px-2 py-1">封存</button>` : `<button onclick="window.activateNotice('${notice.id}')" class="text-green-400 font-medium px-2 py-1">重啟</button>`}
+                            <button onclick="window.deleteNoticePermanently('${notice.id}', '${notice.title}')" class="text-red-400 font-black hover:text-red-300 px-1 py-1">🗑️ 刪除</button>
+                        </td>
+                    </tr>
+                    <tr id="preview-row-${notice.id}" class="hidden bg-gray-800/80 border-b border-gray-700/50">
+                        <td colspan="4" class="px-6 py-4">
+                            <div class="p-4 bg-gray-900 rounded-lg border border-gray-700 shadow-inner">
+                                <p class="text-gray-200 text-sm whitespace-pre-wrap leading-relaxed">${notice.content}</p>
+                                ${fullImg}
+                            </div>
                         </td>
                     </tr>`;
             });
@@ -782,7 +847,11 @@
         window.saveNotice = async () => {
             const titleInput = document.getElementById('modal-title-input').value.trim(); const contentInput = document.getElementById('modal-content').value.trim();
             if (!titleInput) { window.showToast("請填寫公告標題！", "error"); return; }
-            const noticeData = {type: document.getElementById('modal-type').value, typeColor: getColorByType(document.getElementById('modal-type').value), publishDate: document.getElementById('modal-publish').value, title: titleInput, content: contentInput, photoBase64: window.attachedImageBase64.notice || null, expiryDate: document.getElementById('modal-expiry').value, showOnTv: document.getElementById('modal-show-on-tv').checked, status: 'active', readLogs: [], createdAt: Date.now()};
+            const noticeData = {
+                type: document.getElementById('modal-type').value, typeColor: getColorByType(document.getElementById('modal-type').value), publishDate: document.getElementById('modal-publish').value, 
+                title: titleInput, content: contentInput, photoBase64: window.attachedImageBase64.notice || null, expiryDate: document.getElementById('modal-expiry').value, showOnTv: document.getElementById('modal-show-on-tv').checked, status: 'active', readLogs: [], createdAt: Date.now(),
+                authorName: window.currentUser.name
+            };
             const editId = document.getElementById('modal-edit-id').value;
             if (editId) { if (document.getElementById('modal-force-unread').checked) noticeData.readLogs = []; await updateDoc(doc(db, 'notices', editId), noticeData); } 
             else { await addDoc(collection(db, 'notices'), noticeData); }
@@ -803,7 +872,29 @@
         window.deleteUser = async (docId, userName) => { if (confirm(`⚠️ 確定要移除「${userName}」的登入權限嗎？`)) { await deleteDoc(doc(db, 'users', docId)); window.showToast("🗑️ 帳號已移除"); } };
         window.archiveNotice = async (id) => { await updateDoc(doc(db, 'notices', id), { status: 'archived', expiryDate: "" }); window.showToast("📦 公告已封存"); };
         window.activateNotice = async (id) => { await updateDoc(doc(db, 'notices', id), { status: 'active' }); window.showToast("🔄 公告已重啟"); };
-        window.acknowledgeNotice = async (id) => { const n = window.noticesData.find(x => x.id === id); if(!n) return; const timeStr = `${new Date().getFullYear()}/${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')} ${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`; const log = { userId: window.currentUser.id, userEmail: window.currentUser.email.toLowerCase(), time: timeStr, userName: window.currentUser.name }; await updateDoc(doc(db, 'notices', id), { readLogs: [...(n.readLogs || []), log] }); window.showToast("✅ 已簽收公告"); window.stopTabFlashing('notice'); };
+        
+        window.acknowledgeNotice = async (id) => { 
+            const n = window.noticesData.find(x => x.id === id); if(!n) return;
+            const timeStr = `${new Date().getFullYear()}/${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getDate()).padStart(2,'0')} ${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`;
+            const log = { userId: window.currentUser.id, userEmail: window.currentUser.email.toLowerCase(), time: timeStr, userName: window.currentUser.name };
+            
+            const newLogs = [...(n.readLogs || []), log];
+            let newStatus = n.status;
+
+            const agentUsers = window.usersData.filter(u => u.role !== 'supervisor');
+            const agentEmails = agentUsers.map(u => u.email.toLowerCase());
+            const readEmails = newLogs.map(l => l.userEmail);
+            const allAgentsRead = agentEmails.every(email => readEmails.includes(email));
+            
+            if (allAgentsRead && agentEmails.length > 0) {
+                newStatus = 'archived';
+            }
+
+            await updateDoc(doc(db, 'notices', id), { readLogs: newLogs, status: newStatus });
+            window.showToast("✅ 已簽收公告");
+            if (newStatus === 'archived') { window.showToast("🎉 全員已讀，系統已自動將此公告封存！", "success"); }
+            window.stopTabFlashing('notice'); 
+        };
 
         window.confirmLoginMention = () => { document.getElementById('login-mention-modal').classList.add('hidden'); document.getElementById('login-mention-modal').classList.remove('flex'); window.switchAgentTab('handover'); };
 
@@ -843,16 +934,21 @@
 
         const noticesQuery = query(collection(db, "notices"), orderBy("createdAt", "desc"), limit(100));
         onSnapshot(noticesQuery, (snapshot) => {
-            const freshNotices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.createdAt - a.createdAt);
+            const freshNotices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => {
+                const aIsActive = a.status !== 'archived';
+                const bIsActive = b.status !== 'archived';
+                if (aIsActive && !bIsActive) return -1;
+                if (!aIsActive && bIsActive) return 1;
+                return b.createdAt - a.createdAt;
+            });
             if (!isFirstNoticesLoad && freshNotices.length > window.noticesData.length) { window.playNoticeAlert(); window.startTabFlashing('notice'); }
             isFirstNoticesLoad = false; window.noticesData = freshNotices;
             
             const container = document.getElementById('marquee-container'); 
             const marquee = document.getElementById('global-marquee'); 
             if(container && marquee) { 
-                const urgentNotices = window.noticesData.filter(n => n.status === 'active' && n.type === '緊急通知'); 
+                const urgentNotices = window.noticesData.filter(n => n.status === 'active' && n.type === '緊急公告'); 
                 if (urgentNotices.length > 0) { 
-                    // 🟢 跑馬燈內容精簡優化：只留標題，並加上防抽搐的狀態鎖
                     const newText = urgentNotices.map(n => `🚨 【${n.title}】`).join('        ');
                     if (marquee.innerText !== newText) {
                         marquee.innerText = newText;
