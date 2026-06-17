@@ -6,8 +6,10 @@
     <title>客服輪班重要事項宣導系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        /* 跑馬燈修復：從 100vw (螢幕最右側) 開始滑動，避免字數變少時在中間憑空出現 */
+        @keyframes marquee { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
         .animate-marquee { display: inline-block; white-space: nowrap; animation: marquee 20s linear infinite; }
+        
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
@@ -24,9 +26,13 @@
         .mention-item:hover { background: #4f46e5; color: #fff; }
         .mention-glow { animation: red-glow 1.5s infinite alternate; border: 2px solid #ef4444 !important; }
         @keyframes red-glow { from { box-shadow: 0 0 5px rgba(239, 68, 68, 0.4); } to { box-shadow: 0 0 15px rgba(239, 68, 68, 0.8); } }
+
+        /* 🟢 新增：多行截斷技術 (防爆版專用) */
+        .line-clamp-4 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+        .line-clamp-2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col relative">
+<body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col relative overflow-hidden">
 
     <div id="mention-alert-bar" class="fixed top-0 inset-x-0 bg-red-600 text-white font-bold text-center py-3 px-4 shadow-2xl z-[999] transform -translate-y-full transition-transform duration-300 flex justify-between items-center hidden">
         <div class="flex-1 text-sm md:text-base flex items-center justify-center gap-2"><span>🚨</span> <span id="mention-alert-text">有人在交接中標記了您，請前往確認！</span></div>
@@ -83,7 +89,8 @@
         </header>
 
         <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
-            <main id="tv-view" class="flex-1 p-8 bg-gray-900 relative hidden flex-col">
+            <!-- 🟢 電視看板介面：鎖定高度，嚴禁超出 -->
+            <main id="tv-view" class="flex-1 p-8 bg-gray-900 relative hidden flex-col h-full overflow-hidden">
                 <div class="flex justify-between items-start mb-6 border-b border-gray-800 pb-4 shrink-0">
                     <h2 class="text-3xl font-bold text-white tracking-wider flex items-center gap-4">
                         📺 辦公室即時看板 
@@ -94,14 +101,17 @@
                         <div id="tv-live-date" class="text-gray-400 text-lg">YYYY/MM/DD</div>
                     </div>
                 </div>
-                <div class="flex-1 flex gap-8 min-h-0">
-                    <div class="w-2/3 flex flex-col">
-                        <h3 class="text-xl font-bold text-gray-400 mb-4 uppercase tracking-wider">📢 最新公告</h3>
-                        <div id="tv-notice-grid" class="grid grid-cols-2 gap-6 overflow-y-auto tv-scroll pr-2"></div>
+                
+                <!-- 🟢 鎖定模式佈局：加入 min-w-0 min-h-0 防止內容撐爆 Grid -->
+                <div class="flex-1 grid grid-cols-3 gap-8 min-h-0 overflow-hidden">
+                    <div class="col-span-2 flex flex-col min-w-0 min-h-0">
+                        <h3 class="text-xl font-bold text-gray-400 mb-4 uppercase tracking-wider shrink-0">📢 最新公告 (顯示最新 6 筆)</h3>
+                        <!-- 公告區：改為 2 欄 3 列的固定網格，超出隱藏 -->
+                        <div id="tv-notice-grid" class="grid grid-cols-2 gap-4 flex-1 min-h-0 overflow-hidden auto-rows-fr"></div>
                     </div>
-                    <div class="w-1/3 flex flex-col border-l border-gray-700 pl-8">
-                        <h3 class="text-xl font-bold text-indigo-400 mb-4 uppercase tracking-wider">🤝 待辦交接</h3>
-                        <div id="tv-handover-feed" class="flex-1 overflow-y-auto tv-scroll space-y-4 pr-2"></div>
+                    <div class="col-span-1 flex flex-col border-l border-gray-700 pl-8 min-w-0 min-h-0">
+                        <h3 class="text-xl font-bold text-indigo-400 mb-4 uppercase tracking-wider shrink-0">🤝 待辦交接 (顯示最新 6 筆)</h3>
+                        <div id="tv-handover-feed" class="flex-1 min-h-0 overflow-hidden flex flex-col gap-4"></div>
                     </div>
                 </div>
             </main>
@@ -596,7 +606,6 @@
             }
         };
 
-        // 🟢 加入雙重過濾：關鍵字與分類下拉選單
         window.renderAgentNotices = () => {
             const container = document.getElementById('notice-grid'); if(!container) return;
             const searchQuery = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase().trim() : "";
@@ -684,30 +693,42 @@
             });
         };
 
+        // 🟢 TV 視圖渲染：嚴格鎖定只抓 6 筆，套用 line-clamp 截斷文字
         window.renderTvNotices = () => {
             const noticeContainer = document.getElementById('tv-notice-grid');
             if(noticeContainer) {
                 noticeContainer.innerHTML = '';
-                window.noticesData.filter(n => isNoticePublished(n) && n.showOnTv !== false).slice(0, 4).forEach(notice => {
-                    let imgIcon = notice.photoBase64 ? `<div class="mt-2 text-[10px] text-indigo-400">🖼️ 附圖片 (請至電腦查看)</div>` : '';
-                    noticeContainer.innerHTML += `<div class="bg-gray-800 p-5 rounded-xl border-l-4 ${notice.typeColor} h-full flex flex-col shadow-lg"><h3 class="font-bold text-white mb-2 truncate text-lg">${getIconByType(notice.type)} ${notice.title}</h3><p class="text-gray-300 text-sm flex-1 overflow-hidden whitespace-pre-wrap">${notice.content}</p>${imgIcon}</div>`;
+                // 使用 .slice(0, 6) 限制只取前六筆
+                window.noticesData.filter(n => isNoticePublished(n) && n.showOnTv !== false && n.status === 'active').slice(0, 6).forEach(notice => {
+                    let imgIcon = notice.photoBase64 ? `<div class="mt-2 text-[10px] text-indigo-400 shrink-0">🖼️ 附圖 (詳見電腦)</div>` : '';
+                    noticeContainer.innerHTML += `
+                        <div class="bg-gray-800 p-4 rounded-xl border-l-4 ${notice.typeColor} flex flex-col shadow-lg overflow-hidden h-full">
+                            <h3 class="font-bold text-white mb-2 truncate text-base shrink-0">${getIconByType(notice.type)} ${notice.title}</h3>
+                            <p class="text-gray-300 text-sm flex-1 line-clamp-4 leading-relaxed">${notice.content}</p>
+                            ${imgIcon}
+                        </div>`;
                 });
             }
             const handoverContainer = document.getElementById('tv-handover-feed');
             if(handoverContainer) {
                 handoverContainer.innerHTML = '';
-                window.handoversData.filter(h => h.status === 'pending').forEach(item => {
+                // 使用 .slice(0, 6) 限制只取前六筆
+                window.handoversData.filter(h => h.status === 'pending').slice(0, 6).forEach(item => {
                     let imgIcon = item.photoBase64 ? `<span class="text-indigo-400 ml-2" title="附圖">🖼️</span>` : '';
                     let isFromSuper = item.authorRole === 'supervisor';
                     let superLabel = isFromSuper ? '<span class="text-amber-400 text-[10px] font-bold ml-2">[主管指派]</span>' : '';
                     let borderLeftColor = isFromSuper ? 'border-amber-500' : 'border-indigo-500';
-                    let latest = (item.updates && item.updates.length > 0) ? `<p class="text-[11px] text-gray-400 border-t border-gray-700 mt-2 pt-2 truncate">↳ ${item.updates[item.updates.length-1].content}</p>` : '';
-                    handoverContainer.innerHTML += `<div class="p-4 rounded-lg border-l-4 ${borderLeftColor} bg-gray-800 shadow-lg"><span class="font-bold text-white text-sm">${item.authorName}${superLabel}${imgIcon}</span><p class="text-gray-300 text-sm truncate mt-1">${item.content}</p>${latest}</div>`;
+                    let latest = (item.updates && item.updates.length > 0) ? `<p class="text-[11px] text-gray-400 border-t border-gray-700 mt-2 pt-2 truncate shrink-0">↳ ${item.updates[item.updates.length-1].content}</p>` : '';
+                    handoverContainer.innerHTML += `
+                        <div class="p-4 rounded-lg border-l-4 ${borderLeftColor} bg-gray-800 shadow-lg flex flex-col overflow-hidden">
+                            <span class="font-bold text-white text-sm shrink-0">${item.authorName}${superLabel}${imgIcon}</span>
+                            <p class="text-gray-300 text-sm mt-1 line-clamp-2 flex-1">${item.content}</p>
+                            ${latest}
+                        </div>`;
                 });
             }
         };
 
-        // 🟢 主管表格優化：拿掉摘要、加入關鍵字篩選過濾
         window.renderSupervisorTable = () => {
             const tbody = document.getElementById('supervisor-table-body'); if(!tbody) return; tbody.innerHTML = '';
             const agentUsers = window.usersData.filter(u => u.role !== 'supervisor'); const totalAgentsCount = agentUsers.length;
