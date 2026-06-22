@@ -6,7 +6,6 @@
     <title>客服輪班重要事項宣導系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 跑馬燈修復：從 100vw (螢幕最右側) 開始滑動，避免字數變少時在中間憑空出現 */
         @keyframes marquee { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
         .animate-marquee { display: inline-block; white-space: nowrap; animation: marquee 20s linear infinite; }
         
@@ -27,7 +26,6 @@
         .mention-glow { animation: red-glow 1.5s infinite alternate; border: 2px solid #ef4444 !important; }
         @keyframes red-glow { from { box-shadow: 0 0 5px rgba(239, 68, 68, 0.4); } to { box-shadow: 0 0 15px rgba(239, 68, 68, 0.8); } }
 
-        /* 🟢 新增：多行截斷技術 (防爆版專用) */
         .line-clamp-4 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
         .line-clamp-2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
     </style>
@@ -78,7 +76,7 @@
         <header id="main-header" class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center shrink-0">
             <div class="text-xl font-bold text-white flex items-center">📋 值班系統 <span id="role-badge" class="ml-3 text-xs bg-gray-600 px-2 py-1 rounded"></span></div>
             <div class="flex items-center gap-4">
-                <button id="switch-view-btn" onclick="window.toggleView()" class="hidden text-sm bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded shadow">切換主管後台</button>
+                <button id="switch-view-btn" onclick="window.toggleView()" class="hidden text-sm bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded shadow transition-colors duration-200 font-medium border border-indigo-500/50">👀 預覽客服視角</button>
                 <button id="agent-tv-btn" onclick="window.enterTvMode()" class="hidden text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded border border-gray-600 font-bold shadow">📺 電視看板</button>
                 <span class="text-gray-300 text-sm border-l border-gray-600 pl-4 hidden sm:inline-block" id="user-greeting"></span>
                 <div class="border-l border-gray-600 pl-4 flex items-center gap-3">
@@ -89,7 +87,6 @@
         </header>
 
         <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
-            <!-- 🟢 電視看板介面：鎖定高度，嚴禁超出 -->
             <main id="tv-view" class="flex-1 p-8 bg-gray-900 relative hidden flex-col h-full overflow-hidden">
                 <div class="flex justify-between items-start mb-6 border-b border-gray-800 pb-4 shrink-0">
                     <h2 class="text-3xl font-bold text-white tracking-wider flex items-center gap-4">
@@ -102,16 +99,15 @@
                     </div>
                 </div>
                 
-                <!-- 🟢 鎖定模式佈局：加入 min-w-0 min-h-0 防止內容撐爆 Grid -->
                 <div class="flex-1 grid grid-cols-3 gap-8 min-h-0 overflow-hidden">
                     <div class="col-span-2 flex flex-col min-w-0 min-h-0">
                         <h3 class="text-xl font-bold text-gray-400 mb-4 uppercase tracking-wider shrink-0">📢 最新公告 (顯示最新 6 筆)</h3>
-                        <!-- 公告區：改為 2 欄 3 列的固定網格，超出隱藏 -->
-                        <div id="tv-notice-grid" class="grid grid-cols-2 gap-4 flex-1 min-h-0 overflow-hidden auto-rows-fr"></div>
+                        <!-- 🟢 移除強制等高的 auto-rows-fr，改為靠上對齊 items-start content-start 防止變形 -->
+                        <div id="tv-notice-grid" class="grid grid-cols-2 gap-4 flex-1 min-h-0 overflow-hidden items-start content-start"></div>
                     </div>
                     <div class="col-span-1 flex flex-col border-l border-gray-700 pl-8 min-w-0 min-h-0">
                         <h3 class="text-xl font-bold text-indigo-400 mb-4 uppercase tracking-wider shrink-0">🤝 待辦交接 (顯示最新 6 筆)</h3>
-                        <div id="tv-handover-feed" class="flex-1 min-h-0 overflow-hidden flex flex-col gap-4"></div>
+                        <div id="tv-handover-feed" class="flex-1 min-h-0 overflow-hidden flex flex-col gap-4 justify-start"></div>
                     </div>
                 </div>
             </main>
@@ -140,7 +136,7 @@
                         <input type="text" id="search-input" oninput="window.renderAgentNotices()" placeholder="搜尋關鍵字..." class="w-full sm:w-48 bg-gray-800 border border-gray-600 rounded-lg py-2 px-4 text-sm text-white outline-none focus:border-indigo-500 shadow-inner">
                     </div>
                 </div>
-                <div id="notice-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-6 overflow-y-auto pb-6 pr-2"></div>
+                <div id="notice-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-6 overflow-y-auto pb-6 pr-2 items-start content-start"></div>
                 <div id="handover-section" class="hidden flex-col h-full">
                     <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 mb-6 shrink-0 shadow-lg relative">
                         <h3 class="text-lg font-bold text-white mb-3">📝 發布交接事項 (輸入 @ 標記同仁)</h3>
@@ -457,6 +453,15 @@
 
         function isNoticePublished(notice) { if (notice.status !== 'active') return false; if (!notice.publishDate) return true; return new Date(notice.publishDate) <= new Date(); }
         
+        // 🟢 智慧日期雙軌制格式化函式
+        function getDisplayDate(notice) {
+            if (notice.publishDate) {
+                return notice.publishDate.replace('T', ' ');
+            }
+            const d = new Date(notice.createdAt);
+            return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        }
+
         function getColorByType(type) { 
             switch(type){ 
                 case "行政公告": return "text-blue-400 border-blue-400"; 
@@ -541,6 +546,7 @@
         };
 
         window.showLoginView = () => { document.getElementById('login-view').classList.remove('hidden'); document.getElementById('app-layout').classList.add('hidden'); };
+        
         window.showAppLayout = () => { 
             document.getElementById('login-view').classList.add('hidden'); document.getElementById('app-layout').classList.remove('hidden'); 
             if(window.currentUser && window.currentUser.role !== 'tv'){ 
@@ -552,10 +558,24 @@
             window.setupMentionDropdown('handover-input', 'agent-mention-list'); window.setupMentionDropdown('super-handover-input', 'super-mention-list');
         };
 
+        // 🟢 加入身分切換按鈕的顯示判斷
         window.renderCurrentView = () => {
             const header = document.getElementById('main-header'); const sidebar = document.getElementById('main-sidebar'); const exitBtn = document.getElementById('tv-exit-btn');
             const agentView = document.getElementById('agent-view'); const superView = document.getElementById('supervisor-view'); const tvView = document.getElementById('tv-view');
+            const switchBtn = document.getElementById('switch-view-btn');
+
             if(agentView) agentView.classList.add('hidden'); if(superView) superView.classList.add('hidden'); if(tvView) tvView.classList.add('hidden');
+            
+            // 如果是主管，解除按鈕隱藏封印並動態改變文字
+            if (window.currentUser && window.currentUser.role === 'supervisor') {
+                if (switchBtn) {
+                    switchBtn.classList.remove('hidden');
+                    switchBtn.innerHTML = window.currentView === 'agent' ? '⚙️ 返回主管後台' : '👀 預覽客服視角';
+                }
+            } else {
+                if (switchBtn) switchBtn.classList.add('hidden');
+            }
+
             if (window.currentView === 'tv') { 
                 if(header) header.classList.add('hidden'); if(sidebar) sidebar.classList.add('hidden'); if(exitBtn) exitBtn.classList.remove('hidden');
                 if(tvView) { tvView.classList.remove('hidden'); tvView.classList.add('flex'); }
@@ -606,6 +626,7 @@
             }
         };
 
+        // 🟢 客服首頁加入日期標籤
         window.renderAgentNotices = () => {
             const container = document.getElementById('notice-grid'); if(!container) return;
             const searchQuery = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase().trim() : "";
@@ -631,9 +652,12 @@
                 else if (window.currentAgentTab === 'history') { buttonHtml = isRead ? `<button disabled class="mt-4 w-full bg-gray-700 text-green-400 py-2 rounded font-medium cursor-not-allowed border border-gray-600">✅ 已於 ${userReadLog.time} 簽收</button>` : `<button disabled class="mt-4 w-full bg-gray-700 text-red-400 py-2 rounded font-medium cursor-not-allowed border border-gray-600">公告已下架 (未簽收)</button>`; }
                 container.innerHTML += `
                     <div class="bg-gray-800 p-6 rounded-xl border-2 ${isRead ? 'border-gray-700' : 'border-indigo-500'} flex flex-col">
-                        <div class="mb-4 flex justify-between items-center">
+                        <div class="mb-4 flex justify-between items-center flex-wrap gap-2">
                             <span class="text-xs font-bold border px-2 py-1 rounded ${notice.typeColor}">${getIconByType(notice.type)} ${notice.type}</span>
-                            <span class="text-[10px] bg-gray-700 text-gray-400 px-2 py-1 rounded">✍️ ${notice.authorName || '管理員'}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-gray-400">📅 ${getDisplayDate(notice)}</span>
+                                <span class="text-[10px] bg-gray-700 text-gray-300 px-2 py-1 rounded">✍️ ${notice.authorName || '管理員'}</span>
+                            </div>
                         </div>
                         <h3 class="text-xl font-bold text-white mb-2">${notice.title}</h3>
                         <p class="text-gray-300 text-sm whitespace-pre-wrap flex-1 leading-relaxed">${notice.content}</p>
@@ -693,17 +717,19 @@
             });
         };
 
-        // 🟢 TV 視圖渲染：嚴格鎖定只抓 6 筆，套用 line-clamp 截斷文字
+        // 🟢 電視看板加入日期標籤
         window.renderTvNotices = () => {
             const noticeContainer = document.getElementById('tv-notice-grid');
             if(noticeContainer) {
                 noticeContainer.innerHTML = '';
-                // 使用 .slice(0, 6) 限制只取前六筆
                 window.noticesData.filter(n => isNoticePublished(n) && n.showOnTv !== false && n.status === 'active').slice(0, 6).forEach(notice => {
                     let imgIcon = notice.photoBase64 ? `<div class="mt-2 text-[10px] text-indigo-400 shrink-0">🖼️ 附圖 (詳見電腦)</div>` : '';
                     noticeContainer.innerHTML += `
-                        <div class="bg-gray-800 p-4 rounded-xl border-l-4 ${notice.typeColor} flex flex-col shadow-lg overflow-hidden h-full">
-                            <h3 class="font-bold text-white mb-2 truncate text-base shrink-0">${getIconByType(notice.type)} ${notice.title}</h3>
+                        <div class="bg-gray-800 p-4 rounded-xl border-l-4 ${notice.typeColor} flex flex-col shadow-lg overflow-hidden h-fit">
+                            <div class="flex justify-between items-start gap-2 mb-2 shrink-0">
+                                <h3 class="font-bold text-white truncate text-base">${getIconByType(notice.type)} ${notice.title}</h3>
+                                <span class="text-[10px] text-gray-500 whitespace-nowrap">📅 ${getDisplayDate(notice).split(' ')[0]}</span>
+                            </div>
                             <p class="text-gray-300 text-sm flex-1 line-clamp-4 leading-relaxed">${notice.content}</p>
                             ${imgIcon}
                         </div>`;
@@ -712,7 +738,6 @@
             const handoverContainer = document.getElementById('tv-handover-feed');
             if(handoverContainer) {
                 handoverContainer.innerHTML = '';
-                // 使用 .slice(0, 6) 限制只取前六筆
                 window.handoversData.filter(h => h.status === 'pending').slice(0, 6).forEach(item => {
                     let imgIcon = item.photoBase64 ? `<span class="text-indigo-400 ml-2" title="附圖">🖼️</span>` : '';
                     let isFromSuper = item.authorRole === 'supervisor';
@@ -720,7 +745,7 @@
                     let borderLeftColor = isFromSuper ? 'border-amber-500' : 'border-indigo-500';
                     let latest = (item.updates && item.updates.length > 0) ? `<p class="text-[11px] text-gray-400 border-t border-gray-700 mt-2 pt-2 truncate shrink-0">↳ ${item.updates[item.updates.length-1].content}</p>` : '';
                     handoverContainer.innerHTML += `
-                        <div class="p-4 rounded-lg border-l-4 ${borderLeftColor} bg-gray-800 shadow-lg flex flex-col overflow-hidden">
+                        <div class="p-4 rounded-lg border-l-4 ${borderLeftColor} bg-gray-800 shadow-lg flex flex-col overflow-hidden h-fit">
                             <span class="font-bold text-white text-sm shrink-0">${item.authorName}${superLabel}${imgIcon}</span>
                             <p class="text-gray-300 text-sm mt-1 line-clamp-2 flex-1">${item.content}</p>
                             ${latest}
@@ -729,6 +754,7 @@
             }
         };
 
+        // 🟢 主管表格加入日期標籤
         window.renderSupervisorTable = () => {
             const tbody = document.getElementById('supervisor-table-body'); if(!tbody) return; tbody.innerHTML = '';
             const agentUsers = window.usersData.filter(u => u.role !== 'supervisor'); const totalAgentsCount = agentUsers.length;
@@ -756,7 +782,10 @@
                             <div class="flex items-center flex-wrap gap-1 mb-1">
                                 <span>${notice.title}</span> ${tvIcon} ${authorTag}
                             </div>
-                            <span class="text-[10px] ${notice.typeColor} inline-block">${getIconByType(notice.type)} ${notice.type}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] ${notice.typeColor} inline-block">${getIconByType(notice.type)} ${notice.type}</span>
+                                <span class="text-[10px] text-gray-500">📅 ${getDisplayDate(notice)}</span>
+                            </div>
                         </td>
                         <td class="px-6 py-4 text-yellow-400 font-bold whitespace-nowrap">${agentReadCount} / ${totalAgentsCount} 人已讀</td>
                         <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
@@ -919,6 +948,12 @@
 
         window.confirmLoginMention = () => { document.getElementById('login-mention-modal').classList.add('hidden'); document.getElementById('login-mention-modal').classList.remove('flex'); window.switchAgentTab('handover'); };
 
+        // 🟢 修改視圖切換邏輯，確保按鈕正常顯示與狀態變更
+        window.toggleView = () => { 
+            window.currentView = window.currentView === 'agent' ? 'supervisor' : 'agent'; 
+            window.renderCurrentView(); 
+        };
+
         onAuthStateChanged(auth, async (user) => {
             if (window.currentView === 'tv' && window.currentUser?.role === 'tv') return; 
             if (user) {
@@ -945,7 +980,6 @@
         window.exitTvMode = async () => { localStorage.removeItem('shiftSystemTvMode'); if (document.fullscreenElement) await document.exitFullscreen().catch(e=>console.log(e)); if (window.currentUser && window.currentUser.role === 'tv') { await signOut(auth); window.location.reload(); } else { window.currentView = window.currentUser?.role || 'login'; window.renderCurrentView(); } };
         window.resetPassword = async () => { const email = document.getElementById('login-account').value.trim(); if (!email) return window.showToast("請先在上方輸入您的信箱", "error"); await sendPasswordResetEmail(auth, email); window.showToast("✅ 密碼重設信已寄出"); };
         window.changePassword = async () => { const pass = prompt("請輸入新密碼 (至少6碼)"); if (pass && pass.length >= 6) { try { await updatePassword(auth.currentUser, pass); window.showToast("✅ 密碼修改成功"); } catch(e) { window.showToast("安全驗證逾時，請重新登入", "error"); window.logout(); } } };
-        window.toggleView = () => { window.currentView = window.currentView === 'agent' ? 'supervisor' : 'agent'; window.renderCurrentView(); };
 
         window.updateClock = () => {
             const now = new Date(); const timeStr = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':'); const days = ['日','一','二','三','四','五','六']; const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} 星期${days[now.getDay()]}`; if(document.getElementById('live-time')) document.getElementById('live-time').innerText = timeStr; if(document.getElementById('live-date')) document.getElementById('live-date').innerText = dateStr; if(document.getElementById('tv-live-time')) document.getElementById('tv-live-time').innerText = timeStr; if(document.getElementById('tv-live-date')) document.getElementById('tv-live-date').innerText = dateStr;
